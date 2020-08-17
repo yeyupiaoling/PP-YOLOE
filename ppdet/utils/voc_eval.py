@@ -70,8 +70,7 @@ def bbox_eval(results,
             continue
         gt_boxes = t['gt_bbox'][0]
         gt_labels = t['gt_class'][0]
-        difficults = t['is_difficult'][0] if not evaluate_difficult \
-                            else None
+        difficults = t['is_difficult'][0] if not evaluate_difficult else None
 
         if len(t['gt_bbox'][1]) == 0:
             # gt_bbox, gt_class, difficult read as zero padded Tensor
@@ -79,8 +78,7 @@ def bbox_eval(results,
             for i in range(len(gt_boxes)):
                 gt_box = gt_boxes[i]
                 gt_label = gt_labels[i]
-                difficult = None if difficults is None \
-                                else difficults[i]
+                difficult = None if difficults is None else difficults[i]
                 bbox_num = bbox_lengths[i]
                 bbox = bboxes[bbox_idx:bbox_idx + bbox_num]
                 gt_box, gt_label, difficult = prune_zero_padding(
@@ -98,8 +96,7 @@ def bbox_eval(results,
                 bbox = bboxes[bbox_idx:bbox_idx + bbox_num]
                 gt_box = gt_boxes[gt_box_idx:gt_box_idx + gt_box_num]
                 gt_label = gt_labels[gt_box_idx:gt_box_idx + gt_box_num]
-                difficult = None if difficults is None else \
-                            difficults[gt_box_idx: gt_box_idx + gt_box_num]
+                difficult = None if difficults is None else difficults[gt_box_idx: gt_box_idx + gt_box_num]
                 detection_map.update(bbox, gt_box, gt_label, difficult)
                 bbox_idx += bbox_num
                 gt_box_idx += gt_box_num
@@ -107,8 +104,7 @@ def bbox_eval(results,
     logger.info("Accumulating evaluatation results...")
     detection_map.accumulate()
     map_stat = 100. * detection_map.get_map()
-    logger.info("mAP({:.2f}, {}) = {:.2f}".format(overlap_thresh, map_type,
-                                                  map_stat))
+    logger.info("mAP({:.2f}, {}) = {:.2f}".format(overlap_thresh, map_type, map_stat))
     return map_stat
 
 

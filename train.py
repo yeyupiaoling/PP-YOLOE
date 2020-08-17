@@ -1,27 +1,5 @@
-# Copyright (c) 2019 PaddlePaddle Authors. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
-import os, sys
-# add python path of PadleDetection to sys.path
-parent_path = os.path.abspath(os.path.join(__file__, *(['..'] * 2)))
-if parent_path not in sys.path:
-    sys.path.append(parent_path)
-
+import functools
+import os
 import time
 import numpy as np
 import random
@@ -29,7 +7,7 @@ import datetime
 import six
 from collections import deque
 from paddle.fluid import profiler
-
+from ppdet.utils.utility import add_arguments, print_arguments
 from paddle import fluid
 from paddle.fluid.layers.learning_rate_scheduler import _decay_step_counter
 from paddle.fluid.optimizer import ExponentialMovingAverage
@@ -46,26 +24,37 @@ from ppdet.utils.check import check_gpu, check_version, check_config
 import ppdet.utils.checkpoint as checkpoint
 
 import logging
+
 FORMAT = '%(asctime)s-%(levelname)s: %(message)s'
 logging.basicConfig(level=logging.INFO, format=FORMAT)
 logger = logging.getLogger(__name__)
 
+parser = ArgsParser()
+add_arg = functools.partial(add_arguments, argparser=parser)
+parser.add_argument("--output_eval",         default='save_models/eval',    type=str, help="Evaluation directory, default is current directory.")
+parser.add_argument('--vdl_log_dir',         default="logs/scalar",  type=str, help='VisualDL logging directory for scalar.')
+parser.add_argument("--resume_checkpoint",   default=None,   type=str, help="Checkpoint path for resuming training.")
+parser.add_argument("--fp16",                default=False,  action='store_true', help="Enable mixed precision training.")
+parser.add_argument("--loss_scale",          default=8.,     type=float, help="Mixed precision training loss scale.")
+parser.add_argument("--eval",                default=True,   action='store_true',  help="Whether to perform evaluation in train")
+parser.add_argument("--use_vdl",             default=True,   type=bool, help="whether to record the data to VisualDL.")
+
+# NOTE:args for profiler tools, used for benchmark
+parser.add_argument('--is_profiler',         default=0, type=int,  help='The switch of profiler tools. (used for benchmark)')
+parser.add_argument('--profiler_path',       default="save_models/detection.profiler", type=str,  help='The profiler output file path. (used for benchmark)')
+args = parser.parse_args()
+
 
 def main():
     env = os.environ
-    FLAGS.dist = 'PADDLE_TRAINER_ID' in env and 'PADDLE_TRAINERS_NUM' in env
-    if FLAGS.dist:
+    args.dist = 'PADDLE_TRAINER_ID' in env and 'PADDLE_TRAINERS_NUM' in env
+    if args.dist:
         trainer_id = int(env['PADDLE_TRAINER_ID'])
         local_seed = (99 + trainer_id)
         random.seed(local_seed)
         np.random.seed(local_seed)
-
-    if FLAGS.enable_ce:
-        random.seed(0)
-        np.random.seed(0)
-
-    cfg = load_config(FLAGS.config)
-    merge_config(FLAGS.opt)
+    cfg = load_config(args.config)
+    merge_config(args.opt)
     check_config(cfg)
     # check if set use_gpu=True in paddlepaddle cpu version
     check_gpu(cfg.use_gpu)
@@ -96,30 +85,27 @@ def main():
     # build program
     startup_prog = fluid.Program()
     train_prog = fluid.Program()
-    if FLAGS.enable_ce:
-        startup_prog.random_seed = 1000
-        train_prog.random_seed = 1000
     with fluid.program_guard(train_prog, startup_prog):
         with fluid.unique_name.guard():
             model = create(main_arch)
-            if FLAGS.fp16:
+            if args.fp16:
                 assert (getattr(model.backbone, 'norm_type', None)
                         != 'affine_channel'), \
                     '--fp16 currently does not support affine channel, ' \
                     ' please modify backbone settings to use batch norm'
 
-            with mixed_precision_context(FLAGS.loss_scale, FLAGS.fp16) as ctx:
+            with mixed_precision_context(args.loss_scale, args.fp16) as ctx:
                 inputs_def = cfg['TrainReader']['inputs_def']
                 feed_vars, train_loader = model.build_inputs(**inputs_def)
                 train_fetches = model.train(feed_vars)
                 loss = train_fetches['loss']
-                if FLAGS.fp16:
+                if args.fp16:
                     loss *= ctx.get_loss_scale_var()
                 lr = lr_builder()
                 optimizer = optim_builder(lr)
                 optimizer.minimize(loss)
 
-                if FLAGS.fp16:
+                if args.fp16:
                     loss /= ctx.get_loss_scale_var()
 
             if 'use_ema' in cfg and cfg['use_ema']:
@@ -132,7 +118,7 @@ def main():
     train_keys, train_values, _ = parse_fetches(train_fetches)
     train_values.append(lr)
 
-    if FLAGS.eval:
+    if args.eval:
         eval_prog = fluid.Program()
         with fluid.program_guard(eval_prog, startup_prog):
             with fluid.unique_name.guard():
@@ -153,8 +139,7 @@ def main():
             extra_keys = ['gt_bbox', 'gt_class', 'is_difficult']
         if cfg.metric == 'WIDERFACE':
             extra_keys = ['im_id', 'im_shape', 'gt_bbox']
-        eval_keys, eval_values, eval_cls = parse_fetches(fetches, eval_prog,
-                                                         extra_keys)
+        eval_keys, eval_values, eval_cls = parse_fetches(fetches, eval_prog, extra_keys)
 
     # compile program for multi-devices
     build_strategy = fluid.BuildStrategy()
@@ -162,14 +147,14 @@ def main():
     # only enable sync_bn in multi GPU devices
     sync_bn = getattr(model.backbone, 'norm_type', None) == 'sync_bn'
     build_strategy.sync_batch_norm = sync_bn and devices_num > 1 \
-        and cfg.use_gpu
+                                     and cfg.use_gpu
 
     exec_strategy = fluid.ExecutionStrategy()
     # iteration number when CompiledProgram tries to drop local execution scopes.
     # Set it to be 1 to save memory usages, so that unused variables in
     # local execution scopes can be deleted after each iteration.
     exec_strategy.num_iteration_per_drop_scope = 1
-    if FLAGS.dist:
+    if args.dist:
         dist_utils.prepare_for_multi_process(exe, build_strategy, startup_prog,
                                              train_prog)
         exec_strategy.num_threads = 1
@@ -180,23 +165,22 @@ def main():
         build_strategy=build_strategy,
         exec_strategy=exec_strategy)
 
-    if FLAGS.eval:
+    if args.eval:
         compiled_eval_prog = fluid.CompiledProgram(eval_prog)
 
     fuse_bn = getattr(model.backbone, 'norm_type', None) == 'affine_channel'
 
     ignore_params = cfg.finetune_exclude_pretrained_params \
-                 if 'finetune_exclude_pretrained_params' in cfg else []
+        if 'finetune_exclude_pretrained_params' in cfg else []
 
     start_iter = 0
-    if FLAGS.resume_checkpoint:
-        checkpoint.load_checkpoint(exe, train_prog, FLAGS.resume_checkpoint)
+    if args.resume_checkpoint:
+        checkpoint.load_checkpoint(exe, train_prog, args.resume_checkpoint)
         start_iter = checkpoint.global_step()
     elif cfg.pretrain_weights and fuse_bn and not ignore_params:
         checkpoint.load_and_fusebn(exe, train_prog, cfg.pretrain_weights)
     elif cfg.pretrain_weights:
-        checkpoint.load_params(
-            exe, train_prog, cfg.pretrain_weights, ignore_params=ignore_params)
+        checkpoint.load_params(exe, train_prog, cfg.pretrain_weights, ignore_params=ignore_params)
 
     train_reader = create_reader(
         cfg.TrainReader, (cfg.max_iters - start_iter) * devices_num,
@@ -215,19 +199,16 @@ def main():
 
     train_stats = TrainingStats(cfg.log_smooth_window, train_keys)
     train_loader.start()
-    start_time = time.time()
     end_time = time.time()
 
-    cfg_name = os.path.basename(FLAGS.config).split('.')[0]
-    save_dir = os.path.join(cfg.save_dir, cfg_name)
     time_stat = deque(maxlen=cfg.log_smooth_window)
-    best_box_ap_list = [0.0, 0]  #[map, iter]
+    best_box_ap_list = [0.0, 0]  # [map, iter]
 
     # use VisualDL to log data
-    if FLAGS.use_vdl:
+    if args.use_vdl:
         assert six.PY3, "VisualDL requires Python >= 3.5"
         from visualdl import LogWriter
-        vdl_writer = LogWriter(FLAGS.vdl_log_dir)
+        vdl_writer = LogWriter(args.vdl_log_dir)
         vdl_loss_step = 0
         vdl_mAP_step = 0
 
@@ -242,7 +223,7 @@ def main():
         stats = {k: np.array(v).mean() for k, v in zip(train_keys, outs[:-1])}
 
         # use vdl-paddle to log loss
-        if FLAGS.use_vdl:
+        if args.use_vdl:
             if it % cfg.log_iter == 0:
                 for loss_name, loss_value in stats.items():
                     vdl_writer.add_scalar(loss_name, loss_value, vdl_loss_step)
@@ -250,27 +231,26 @@ def main():
 
         train_stats.update(stats)
         logs = train_stats.log()
-        if it % cfg.log_iter == 0 and (not FLAGS.dist or trainer_id == 0):
+        if it % cfg.log_iter == 0 and (not args.dist or trainer_id == 0):
             strs = 'iter: {}, lr: {:.6f}, {}, time: {:.3f}, eta: {}'.format(
                 it, np.mean(outs[-1]), logs, time_cost, eta)
             logger.info(strs)
 
         # NOTE : profiler tools, used for benchmark
-        if FLAGS.is_profiler and it == 5:
+        if args.is_profiler and it == 5:
             profiler.start_profiler("All")
-        elif FLAGS.is_profiler and it == 10:
-            profiler.stop_profiler("total", FLAGS.profiler_path)
+        elif args.is_profiler and it == 10:
+            profiler.stop_profiler("total", args.profiler_path)
             return
 
-
         if (it > 0 and it % cfg.snapshot_iter == 0 or it == cfg.max_iters - 1) \
-           and (not FLAGS.dist or trainer_id == 0):
+                and (not args.dist or trainer_id == 0):
             save_name = str(it) if it != cfg.max_iters - 1 else "model_final"
             if 'use_ema' in cfg and cfg['use_ema']:
                 exe.run(ema.apply_program)
-            checkpoint.save(exe, train_prog, os.path.join(save_dir, save_name))
+            checkpoint.save(exe, train_prog, os.path.join(cfg.save_dir, save_name))
 
-            if FLAGS.eval:
+            if args.eval:
                 # evaluation
                 resolution = None
                 if 'Mask' in cfg.architecture:
@@ -286,19 +266,18 @@ def main():
                     resolution=resolution)
                 box_ap_stats = eval_results(
                     results, cfg.metric, cfg.num_classes, resolution,
-                    is_bbox_normalized, FLAGS.output_eval, map_type,
+                    is_bbox_normalized, args.output_eval, map_type,
                     cfg['EvalReader']['dataset'])
 
                 # use vdl_paddle to log mAP
-                if FLAGS.use_vdl:
+                if args.use_vdl:
                     vdl_writer.add_scalar("mAP", box_ap_stats[0], vdl_mAP_step)
                     vdl_mAP_step += 1
 
                 if box_ap_stats[0] > best_box_ap_list[0]:
                     best_box_ap_list[0] = box_ap_stats[0]
                     best_box_ap_list[1] = it
-                    checkpoint.save(exe, train_prog,
-                                    os.path.join(save_dir, "best_model"))
+                    checkpoint.save(exe, train_prog, os.path.join(cfg.save_dir, "best_model"))
                 logger.info("Best test box ap: {}, in iter: {}".format(
                     best_box_ap_list[0], best_box_ap_list[1]))
 
@@ -309,60 +288,5 @@ def main():
 
 
 if __name__ == '__main__':
-    parser = ArgsParser()
-    parser.add_argument(
-        "-r",
-        "--resume_checkpoint",
-        default=None,
-        type=str,
-        help="Checkpoint path for resuming training.")
-    parser.add_argument(
-        "--fp16",
-        action='store_true',
-        default=False,
-        help="Enable mixed precision training.")
-    parser.add_argument(
-        "--loss_scale",
-        default=8.,
-        type=float,
-        help="Mixed precision training loss scale.")
-    parser.add_argument(
-        "--eval",
-        action='store_true',
-        default=False,
-        help="Whether to perform evaluation in train")
-    parser.add_argument(
-        "--output_eval",
-        default=None,
-        type=str,
-        help="Evaluation directory, default is current directory.")
-    parser.add_argument(
-        "--use_vdl",
-        type=bool,
-        default=False,
-        help="whether to record the data to VisualDL.")
-    parser.add_argument(
-        '--vdl_log_dir',
-        type=str,
-        default="vdl_log_dir/scalar",
-        help='VisualDL logging directory for scalar.')
-    parser.add_argument(
-        "--enable_ce",
-        type=bool,
-        default=False,
-        help="If set True, enable continuous evaluation job."
-        "This flag is only used for internal test.")
-
-    #NOTE:args for profiler tools, used for benchmark
-    parser.add_argument(
-        '--is_profiler',
-        type=int,
-        default=0,
-        help='The switch of profiler tools. (used for benchmark)')
-    parser.add_argument(
-        '--profiler_path',
-        type=str,
-        default="./detection.profiler",
-        help='The profiler output file path. (used for benchmark)')
-    FLAGS = parser.parse_args()
+    print_arguments(args)
     main()

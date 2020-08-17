@@ -186,6 +186,29 @@ def eval_run(exe,
     return results
 
 
+def json_eval_results(metric, json_directory=None, dataset=None):
+    """
+    cocoapi eval with already exists proposal.json, bbox.json or mask.json
+    """
+    assert metric == 'COCO'
+    from ppdet.utils.coco_eval import cocoapi_eval
+    anno_file = dataset.get_anno()
+    json_file_list = ['proposal.json', 'bbox.json', 'mask.json']
+    if json_directory:
+        assert os.path.exists(
+            json_directory), "The json directory:{} does not exist".format(
+                json_directory)
+        for k, v in enumerate(json_file_list):
+            json_file_list[k] = os.path.join(str(json_directory), v)
+
+    coco_eval_style = ['proposal', 'bbox', 'segm']
+    for i, v_json in enumerate(json_file_list):
+        if os.path.exists(v_json):
+            cocoapi_eval(v_json, coco_eval_style[i], anno_file=anno_file)
+        else:
+            logger.info("{} not exists!".format(v_json))
+
+
 def eval_results(results,
                  metric,
                  num_classes,
@@ -193,6 +216,7 @@ def eval_results(results,
                  is_bbox_normalized=False,
                  output_directory=None,
                  map_type='11point',
+                 overlap_thresh=0.5,
                  dataset=None,
                  save_only=False):
     """Evaluation for evaluation program results"""
@@ -234,30 +258,8 @@ def eval_results(results,
             box_ap = voc_bbox_eval(
                 results,
                 num_classes,
+                overlap_thresh=overlap_thresh,
                 is_bbox_normalized=is_bbox_normalized,
                 map_type=map_type)
             box_ap_stats.append(box_ap)
     return box_ap_stats
-
-
-def json_eval_results(metric, json_directory=None, dataset=None):
-    """
-    cocoapi eval with already exists proposal.json, bbox.json or mask.json
-    """
-    assert metric == 'COCO'
-    from ppdet.utils.coco_eval import cocoapi_eval
-    anno_file = dataset.get_anno()
-    json_file_list = ['proposal.json', 'bbox.json', 'mask.json']
-    if json_directory:
-        assert os.path.exists(
-            json_directory), "The json directory:{} does not exist".format(
-                json_directory)
-        for k, v in enumerate(json_file_list):
-            json_file_list[k] = os.path.join(str(json_directory), v)
-
-    coco_eval_style = ['proposal', 'bbox', 'segm']
-    for i, v_json in enumerate(json_file_list):
-        if os.path.exists(v_json):
-            cocoapi_eval(v_json, coco_eval_style[i], anno_file=anno_file)
-        else:
-            logger.info("{} not exists!".format(v_json))

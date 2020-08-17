@@ -1,33 +1,10 @@
-# Copyright (c) 2019 PaddlePaddle Authors. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
+import functools
 import os
-import sys
-# add python path of PadleDetection to sys.path
-parent_path = os.path.abspath(os.path.join(__file__, *(['..'] * 2)))
-if parent_path not in sys.path:
-    sys.path.append(parent_path)
-
 from paddle import fluid
-
 from ppdet.core.workspace import load_config, merge_config, create
 from ppdet.utils.cli import ArgsParser
 import ppdet.utils.checkpoint as checkpoint
+from ppdet.utils.utility import add_arguments, print_arguments
 from ppdet.utils.check import check_config, check_version, check_py_func
 import yaml
 import logging
@@ -35,6 +12,14 @@ from collections import OrderedDict
 FORMAT = '%(asctime)s-%(levelname)s: %(message)s'
 logging.basicConfig(level=logging.INFO, format=FORMAT)
 logger = logging.getLogger(__name__)
+
+
+parser = ArgsParser()
+add_arg = functools.partial(add_arguments, argparser=parser)
+parser.add_argument("--output_dir",   type=str,               default="output",             help="Directory for storing the output model files.")
+parser.add_argument("--weights",      type=str,               default="save_models/90000",  help="resume model path.")
+parser.add_argument("--exclude_nms",  action='store_true',    default=False,                help="Whether prune NMS for benchmark")
+args = parser.parse_args()
 
 
 def parse_reader(reader_cfg, metric, arch):
@@ -56,11 +41,8 @@ def parse_reader(reader_cfg, metric, arch):
     elif metric == "WIDERFACE":
         from ppdet.utils.widerface_eval_utils import get_category_info
     else:
-        raise ValueError(
-            "metric only supports COCO, VOC, WIDERFACE, but received {}".format(
-                metric))
-    clsid2catid, catid2name = get_category_info(anno_file, with_background,
-                                                use_default_label)
+        raise ValueError("metric only supports COCO, VOC, WIDERFACE, but received {}".format(metric))
+    clsid2catid, catid2name = get_category_info(anno_file, with_background, use_default_label)
 
     label_list = [str(cat) for cat in catid2name.values()]
 
@@ -71,10 +53,8 @@ def parse_reader(reader_cfg, metric, arch):
         params = st.__dict__
         params.pop('_id')
         if p['type'] == 'Resize' and has_shape_def:
-            params['target_size'] = min(image_shape[
-                1:]) if arch in scale_set else image_shape[1]
-            params['max_size'] = max(image_shape[
-                1:]) if arch in scale_set else 0
+            params['target_size'] = min(image_shape[1:]) if arch in scale_set else image_shape[1]
+            params['max_size'] = max(image_shape[1:]) if arch in scale_set else 0
             params['image_shape'] = image_shape[1:]
             if 'target_dim' in params:
                 params.pop('target_dim')
@@ -82,7 +62,6 @@ def parse_reader(reader_cfg, metric, arch):
         preprocess_list.append(p)
     batch_transforms = reader_cfg.get('batch_transforms', None)
     if batch_transforms:
-        methods = [bt.__class__.__name__ for bt in batch_transforms]
         for bt in batch_transforms:
             method = bt.__class__.__name__
             if method == 'PadBatch':
@@ -95,8 +74,6 @@ def parse_reader(reader_cfg, metric, arch):
 
 
 def dump_infer_config(FLAGS, config):
-    cfg_name = os.path.basename(FLAGS.config).split('.')[0]
-    save_dir = os.path.join(FLAGS.output_dir, cfg_name)
     from ppdet.core.config.yaml_helpers import setup_orderdict
     setup_orderdict()
     infer_cfg = OrderedDict({
@@ -127,9 +104,9 @@ def dump_infer_config(FLAGS, config):
         'label_list'] = parse_reader(config['TestReader'], config['metric'],
                                      infer_cfg['arch'])
 
-    yaml.dump(infer_cfg, open(os.path.join(save_dir, 'infer_cfg.yml'), 'w'))
+    yaml.dump(infer_cfg, open(os.path.join(FLAGS.output_dir, 'infer_cfg.yml'), 'w'))
     logger.info("Export inference config file to {}".format(
-        os.path.join(save_dir, 'infer_cfg.yml')))
+        os.path.join(FLAGS.output_dir, 'infer_cfg.yml')))
 
 
 def prune_feed_vars(feeded_var_names, target_vars, prog):
@@ -156,17 +133,15 @@ def prune_feed_vars(feeded_var_names, target_vars, prog):
 
 
 def save_infer_model(FLAGS, exe, feed_vars, test_fetches, infer_prog):
-    cfg_name = os.path.basename(FLAGS.config).split('.')[0]
-    save_dir = os.path.join(FLAGS.output_dir, cfg_name)
     feed_var_names = [var.name for var in feed_vars.values()]
     fetch_list = sorted(test_fetches.items(), key=lambda i: i[0])
     target_vars = [var[1] for var in fetch_list]
     feed_var_names = prune_feed_vars(feed_var_names, target_vars, infer_prog)
     logger.info("Export inference model to {}, input: {}, output: "
-                "{}...".format(save_dir, feed_var_names,
+                "{}...".format(FLAGS.output_dir, feed_var_names,
                                [str(var.name) for var in target_vars]))
     fluid.io.save_inference_model(
-        save_dir,
+        FLAGS.output_dir,
         feeded_var_names=feed_var_names,
         target_vars=target_vars,
         executor=exe,
@@ -175,8 +150,8 @@ def save_infer_model(FLAGS, exe, feed_vars, test_fetches, infer_prog):
 
 
 def main():
-    cfg = load_config(FLAGS.config)
-    merge_config(FLAGS.opt)
+    cfg = load_config(args.config)
+    merge_config(args.opt)
     check_config(cfg)
 
     check_version()
@@ -197,29 +172,17 @@ def main():
             inputs_def['use_dataloader'] = False
             feed_vars, _ = model.build_inputs(**inputs_def)
             # postprocess not need in exclude_nms, exclude NMS in exclude_nms mode
-            test_fetches = model.test(feed_vars, exclude_nms=FLAGS.exclude_nms)
+            test_fetches = model.test(feed_vars, exclude_nms=args.exclude_nms)
     infer_prog = infer_prog.clone(True)
     check_py_func(infer_prog)
 
     exe.run(startup_prog)
-    checkpoint.load_params(exe, infer_prog, cfg.weights)
+    checkpoint.load_params(exe, infer_prog, args.weights)
 
-    save_infer_model(FLAGS, exe, feed_vars, test_fetches, infer_prog)
-    dump_infer_config(FLAGS, cfg)
+    save_infer_model(args, exe, feed_vars, test_fetches, infer_prog)
+    dump_infer_config(args, cfg)
 
 
 if __name__ == '__main__':
-    parser = ArgsParser()
-    parser.add_argument(
-        "--output_dir",
-        type=str,
-        default="output",
-        help="Directory for storing the output model files.")
-    parser.add_argument(
-        "--exclude_nms",
-        action='store_true',
-        default=False,
-        help="Whether prune NMS for benchmark")
-
-    FLAGS = parser.parse_args()
+    print_arguments(args)
     main()
