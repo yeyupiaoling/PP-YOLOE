@@ -16,9 +16,9 @@ logger = logging.getLogger(__name__)
 
 parser = ArgsParser()
 add_arg = functools.partial(add_arguments, argparser=parser)
-parser.add_argument("--output_dir",   type=str,               default="output",             help="Directory for storing the output model files.")
-parser.add_argument("--weights",      type=str,               default="save_models/90000",  help="resume model path.")
-parser.add_argument("--exclude_nms",  action='store_true',    default=False,                help="Whether prune NMS for benchmark")
+parser.add_argument("--output_dir",   type=str,               default="output",   help="Directory for storing the output model files.")
+parser.add_argument("--weights",      type=str,               default="save_models/model_final",  help="resume model path.")
+parser.add_argument("--exclude_nms",  action='store_true',    default=False,      help="Whether prune NMS for benchmark")
 args = parser.parse_args()
 
 

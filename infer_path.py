@@ -16,7 +16,7 @@ label_file = 'dataset/label_list.txt'
 # threshold value
 score_threshold = 0.5
 # infer model path
-infer_model_path = 'output/ppyolo/'
+infer_model_path = 'output/'
 # Whether use GPU to train.
 use_gpu = True
 

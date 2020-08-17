@@ -94,8 +94,7 @@ def _load_state(path):
 
 def _strip_postfix(path):
     path, ext = os.path.splitext(path)
-    assert ext in ['', '.pdparams', '.pdopt', '.pdmodel'], \
-            "Unknown postfix {} from weights".format(ext)
+    assert ext in ['', '.pdparams', '.pdopt', '.pdmodel'], "Unknown postfix {} from weights".format(ext)
     return path
 
 
@@ -115,10 +114,8 @@ def load_params(exe, prog, path, ignore_params=[]):
         path = _get_weight_path(path)
 
     path = _strip_postfix(path)
-    if not (os.path.isdir(path) or os.path.isfile(path) or
-            os.path.exists(path + '.pdparams')):
-        raise ValueError("Model pretrain path {} does not "
-                         "exists.".format(path))
+    if not (os.path.isdir(path) or os.path.isfile(path) or os.path.exists(path + '.pdparams')):
+        raise ValueError("Model pretrain path {} does not exists.".format(path))
 
     logger.debug('Loading parameters from {}...'.format(path))
 

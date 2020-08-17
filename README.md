@@ -22,4 +22,34 @@ python setup.py
 5. 执行`train.py`开始训练。
 
 
-## 评估和预测
+## 评估
+
+执行`eval.py`完成模型评估，其中参数`--weights`为模型的路径，不需要带后缀名，`--overlap_thresh`为需要评分的阈值，执行之后输入如下，从输出可以知道当阈值为0.75时，mAP为90.75。
+```
+$ python eval.py --weights=save_models/model_final --overlap_thresh=0.75
+
+2020-08-17 12:56:58,530-INFO: Test iter 0
+2020-08-17 12:57:13,349-INFO: Test iter 100
+2020-08-17 12:57:27,421-INFO: Test iter 200
+2020-08-17 12:57:36,716-INFO: Test finish iter 268
+2020-08-17 12:57:36,716-INFO: Total number of images: 1070, inference time: 27.43800773116421 fps.
+2020-08-17 12:57:36,717-INFO: Start evaluate...
+2020-08-17 12:57:36,999-INFO: Accumulating evaluatation results...
+2020-08-17 12:57:37,017-INFO: mAP(0.75, 11point) = 90.75
+```
+
+## 预测
+
+1. 执行预测执行先要导出预测模型，执行`export_model.py`，其中参数`--weights`为模型的路径，不需要带后缀名，`--output_dir`输出预测模型的路径，文件目录结构如下。
+
+```shell script
+$ python export_model.py --weights=save_models/model_final --output_dir=output/
+
+$ tree output
+output/
+├── infer_cfg.yml
+├── __model__
+└── __params__
+```
+
+2. 项目提供了两种预测方式，第一个`infer_path.py`为使用图像路径进行预测，第二个`infer_camera.py`为调用摄像头进行实时预测。
