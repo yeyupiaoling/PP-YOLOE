@@ -151,10 +151,10 @@ EvalReader:
     num_max_boxes: 50
   dataset:
     !VOCDataSet
-    anno_path: test.txt
-    dataset_dir: dataset/
-    use_default_label: false
-    with_background: false
+      anno_path: test.txt
+      dataset_dir: dataset/
+      use_default_label: false
+      with_background: false
   sample_transforms:
     - !DecodeImage
       to_rgb: True

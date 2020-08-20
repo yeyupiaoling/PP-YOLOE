@@ -216,9 +216,9 @@ def eval_results(results,
                  is_bbox_normalized=False,
                  output_directory=None,
                  map_type='11point',
-                 overlap_thresh=0.5,
                  dataset=None,
-                 save_only=False):
+                 save_only=False,
+                 overlap_thresh=0.5):
     """Evaluation for evaluation program results"""
     box_ap_stats = []
     if metric == 'COCO':
