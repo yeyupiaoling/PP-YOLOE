@@ -21,6 +21,8 @@ python setup.py install
 
 5. 执行`train.py`开始训练。
 
+6. 执行`visualdl --logdir=logs`查看训练可视化信息。
+
 
 ## 评估
 

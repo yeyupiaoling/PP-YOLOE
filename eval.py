@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 
 parser = ArgsParser()
 add_arg = functools.partial(add_arguments, argparser=parser)
-parser.add_argument("--weights",         type=str,    default="save_models/model_final",  help="resume model path.")
-parser.add_argument("--overlap_thresh",  type=str,    default=0.75,  help="resume model path.")
+parser.add_argument("--weights",         type=str,    default="save_models/best_model",  help="resume model path.")
+parser.add_argument("--overlap_thresh",  type=str,    default=0.5,  help="resume model path.")
 parser.add_argument("--json_eval",    action='store_true',    default=False,
                     help="Whether to re eval with already exists bbox.json or mask.json")
 parser.add_argument("-f", "--output_eval",     type=str,      default=None,
