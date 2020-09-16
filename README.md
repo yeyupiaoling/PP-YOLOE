@@ -12,7 +12,7 @@ python -m pip install paddlepaddle-gpu==1.8.4.post107 -i https://mirror.baidu.co
 
 2. 安装ppdet，以及所需依赖包。
 ```shell script
-python setup.py install
+pip install ./ppdet-0.0.4-py3-none-any.whl
 ```
 
 3. 准备数据，默认使用的是VOC格式的数据集，如果要修改为COCO格式的数据集，需要修改`configs/ppyolo.yml`。其中VOC格式操作如下，首先将标注文件放在`dataset/annotation/`，图像文件放在`dataset/images/`，最后执行`create_data_list.py`程序生成数据列表和类别名称。
