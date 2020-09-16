@@ -8,5 +8,6 @@ save_models/
 dataset/
 output/
 logs/
-
+ppdet/
+setup.py
 
