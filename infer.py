@@ -4,7 +4,6 @@ import argparse
 import time
 import yaml
 from functools import reduce
-from PIL import Image
 import cv2
 import numpy as np
 import paddle.fluid as fluid
@@ -238,22 +237,8 @@ def create_inputs(im, im_info, model_arch='YOLO'):
     origin_shape = list(im_info['origin_shape'])
     resize_shape = list(im_info['resize_shape'])
     scale_x, scale_y = im_info['scale']
-    if 'YOLO' in model_arch:
-        im_size = np.array([origin_shape]).astype('int32')
-        inputs['im_size'] = im_size
-    elif 'RetinaNet' in model_arch:
-        scale = scale_x
-        im_info = np.array([resize_shape + [scale]]).astype('float32')
-        inputs['im_info'] = im_info
-    elif 'RCNN' in model_arch:
-        scale = scale_x
-        im_info = np.array([resize_shape + [scale]]).astype('float32')
-        im_shape = np.array([origin_shape + [1.]]).astype('float32')
-        inputs['im_info'] = im_info
-        inputs['im_shape'] = im_shape
-    elif 'TTF' in model_arch:
-        scale_factor = np.array([scale_x, scale_y] * 2).astype('float32')
-        inputs['scale_factor'] = scale_factor
+    im_size = np.array([origin_shape]).astype('int32')
+    inputs['im_size'] = im_size
     return inputs
 
 
@@ -262,7 +247,6 @@ class Config():
     Args:
         model_dir (str): root path of model.yml
     """
-    support_models = ['YOLO', 'SSD', 'RetinaNet', 'RCNN', 'Face', 'TTF']
 
     def __init__(self, model_dir):
         # parsing Yaml config for Preprocess
@@ -285,11 +269,9 @@ class Config():
         Raises:
             ValueError: loaded model not in supported model type 
         """
-        for support_model in self.support_models:
-            if support_model in yml_conf['arch']:
-                return True
-        raise ValueError("Unsupported arch: {}, expect {}".format(yml_conf[
-                                                                      'arch'], self.support_models))
+        if 'YOLO' in yml_conf['arch']:
+            return True
+        raise ValueError("Unsupported arch: {}, expect {}".format(yml_conf['arch'], 'YOLO'))
 
     def print_config(self):
         print('-----------  Model Configuration -----------')

@@ -58,7 +58,7 @@ with open(label_file, 'r', encoding='utf-8') as f:
 def infer():
     img, image = get_image()
     # 获取原图片的大小
-    im_size = np.array([[image.shape[0], image.shape[1]]])
+    im_size = np.array([[image.shape[0], image.shape[1]]]).astype(np.int32)
     start = time.time()
     nmsed_out_v = exe.run(infer_program,
                           feed={feeded_var_names[0]: img, feeded_var_names[1]: im_size},

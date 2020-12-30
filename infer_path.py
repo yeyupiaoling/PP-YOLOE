@@ -46,7 +46,7 @@ def load_image(image_path):
     img = cv2.imdecode(data, 1)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     # 获取原图片的大小
-    im_size = np.array([[img.shape[0], img.shape[1]]])
+    im_size = np.array([[img.shape[0], img.shape[1]]]).astype(np.int32)
     img = cv2.resize(img, (input_size[0], input_size[1]))
     img = (img - img_mean) * img_std
     img = img.transpose((2, 0, 1))
