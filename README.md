@@ -5,14 +5,14 @@ PP-YOLO是PaddleDetection优化和改进的YOLOv3的模型，其精度(COCO数�
 
 ## 训练
 
-1. 安装PaddlePaddle GPU版本，需要1.8.4以上。
+1. 安装PaddlePaddle GPU版本，需要2.0.1。
 ```shell script
-python -m pip install paddlepaddle-gpu==1.8.4.post107 -i https://mirror.baidu.com/pypi/simple
+python -m pip install paddlepaddle-gpu==2.0.1.post101 -i https://mirror.baidu.com/pypi/simple
 ```
 
 2. 安装ppdet，以及所需依赖包。
 ```shell script
-pip install ./ppdet-0.0.4-py3-none-any.whl
+pip install ./ppdet-2.0rc0-py3-none-any.whl
 ```
 
 3. 准备数据，默认使用的是VOC格式的数据集，如果要修改为COCO格式的数据集，需要修改`configs/ppyolo.yml`。其中VOC格式操作如下，首先将标注文件放在`dataset/annotation/`，图像文件放在`dataset/images/`，最后执行`create_data_list.py`程序生成数据列表和类别名称。

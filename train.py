@@ -4,6 +4,8 @@ import time
 import numpy as np
 import random
 import datetime
+
+import paddle
 import six
 from collections import deque
 from paddle.fluid import profiler
@@ -25,6 +27,7 @@ import ppdet.utils.checkpoint as checkpoint
 
 import logging
 
+paddle.enable_static()
 FORMAT = '%(asctime)s-%(levelname)s: %(message)s'
 logging.basicConfig(level=logging.INFO, format=FORMAT)
 logger = logging.getLogger(__name__)

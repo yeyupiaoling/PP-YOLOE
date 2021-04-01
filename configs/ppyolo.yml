@@ -44,7 +44,7 @@ YOLOv3Head:
   drop_block: true
 
 YOLOv3Loss:
-  batch_size: 24
+  batch_size: 16
   ignore_thresh: 0.7
   scale_x_y: 1.05
   label_smooth: false
@@ -137,7 +137,7 @@ TrainReader:
               [30, 61], [62, 45], [59, 119],
               [116, 90], [156, 198], [373, 326]]
     downsample_ratios: [32, 16, 8]
-  batch_size: 24
+  batch_size: 16
   shuffle: true
   mixup_epoch: 25000
   drop_last: true
@@ -171,7 +171,7 @@ EvalReader:
     - !Permute
       to_bgr: false
       channel_first: True
-  batch_size: 24
+  batch_size: 16
   drop_empty: false
   worker_num: 8
   bufsize: 4
