@@ -1,0 +1,10 @@
+_BASE_: [
+  'voc.yml',
+  'runtime.yml',
+  'ppyolo_tiny.yml',
+  'optimizer_650e.yml',
+  'ppyolo_tiny_reader.yml',
+]
+
+snapshot_epoch: 1
+weights: output/ppyolo_mbv3_large_qat/0

@@ -1,99 +1,94 @@
-import os
-import time
 import cv2
 import numpy as np
-import paddle.fluid as fluid
+import paddle.inference as paddle_infer
 from PIL import Image, ImageFont, ImageDraw
 
-input_size = [608, 608]
-# image mean
-img_mean = [0.485, 0.456, 0.406]
-# image std.
-img_std = [0.229, 0.224, 0.225]
-# data label/
-label_file = 'dataset/label_list.txt'
-# threshold value
-score_threshold = 0.5
-# infer model path
-infer_model_path = 'output/'
-# Whether use GPU to train.
-use_gpu = True
+# 创建 config
+config = paddle_infer.Config('output_inference/ppyolo_mbv3_large_qat/model.pdmodel',
+                             'output_inference/ppyolo_mbv3_large_qat/model.pdiparams')
+config.enable_use_gpu(1000, 0)
+config.enable_memory_optim()
+
+# 根据 config 创建 predictor
+predictor = paddle_infer.create_predictor(config)
+
+# 获取输入层
+image_handle = predictor.get_input_handle('image')
+im_shape_handle = predictor.get_input_handle('im_shape')
+scale_factor_handle = predictor.get_input_handle('scale_factor')
+image_handle.reshape([1, 3, 320, 320])
+im_shape_handle.reshape([1, 2])
+scale_factor_handle.reshape([1, 2])
+
+# 获取输出的名称
+output_names = predictor.get_output_names()
 
 # 打开摄像头并设置摄像头
 cap = cv2.VideoCapture(0)
+label_file = 'dataset/label_list.txt'
 
-
-def get_image():
-    while True:
-        # 从摄像头读取图片
-        sucess, image = cap.read()
-        if sucess:
-            img = np.array(image).astype('float32')
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            img = cv2.resize(img, (input_size[0], input_size[1]))
-            img = (img - img_mean) * img_std
-            img = img.transpose((2, 0, 1))
-            img = np.expand_dims(img, axis=0).astype(np.float32)
-            return img, image
-
-
-if not os.path.exists(infer_model_path):
-    raise ValueError("The model path [%s] does not exist." % infer_model_path)
-
-place = fluid.CUDAPlace(0) if use_gpu else fluid.CPUPlace()
-exe = fluid.Executor(place)
-exe.run(fluid.default_startup_program())
-
-[infer_program,
- feeded_var_names,
- target_var] = fluid.io.load_inference_model(dirname=infer_model_path,
-                                             executor=exe,
-                                             model_filename='__model__',
-                                             params_filename='__params__')
 with open(label_file, 'r', encoding='utf-8') as f:
     names = f.readlines()
 
 
-# 预测图像
-def infer():
-    img, image = get_image()
-    # 获取原图片的大小
-    im_size = np.array([[image.shape[0], image.shape[1]]]).astype(np.int32)
-    start = time.time()
-    nmsed_out_v = exe.run(infer_program,
-                          feed={feeded_var_names[0]: img, feeded_var_names[1]: im_size},
-                          fetch_list=target_var,
-                          return_numpy=False)
-    nmsed_out_v = np.array(nmsed_out_v[0])
-    end = time.time()
-    results = []
-    try:
-        for dt in nmsed_out_v:
-            if dt[1] < score_threshold:
-                continue
-            results.append(dt)
-        print("预测时间：%d, 预测结果：%s" % (round((end - start) * 1000), results))
-        draw_image(image, results)
-    except:
-        pass
+def load_image(img):
+    img = cv2.resize(img, (320, 320))
+    mean = np.array([0.485, 0.456, 0.406])[np.newaxis, np.newaxis, :]
+    std = np.array([0.229, 0.224, 0.225])[np.newaxis, np.newaxis, :]
+    img = (img / 255.0 - mean) / std
+    img = np.transpose(img, axes=[2, 0, 1])
+    img = img.astype(np.float32, copy=False)
+    img = img[np.newaxis, :]
+    return img
+
+
+def infer(im, threshold=0.5):
+    im_shape = np.array([[im.shape[0], im.shape[1]]]).astype(np.float32)
+    scale_factor = np.array([[1., 1.]], dtype=np.float32)
+    image = load_image(im)
+
+    # 设置输入
+    image_handle.copy_from_cpu(image)
+    im_shape_handle.copy_from_cpu(im_shape)
+    scale_factor_handle.copy_from_cpu(scale_factor)
+    # 运行predictor
+    predictor.run()
+    # 获取输出
+    output_handle = predictor.get_output_handle(output_names[0])
+    output_data = output_handle.copy_to_cpu()
+    expect_boxes = (output_data[:, 1] > threshold) & (output_data[:, 0] > -1)
+    output_data = output_data[expect_boxes, :]
+    return output_data
 
 
 # 对图像进行画框
-def draw_image(img, results):
+def draw_box(img, results):
     img = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
     draw = ImageDraw.Draw(img)
-    for result in results:
-        xmin, ymin, xmax, ymax = result[2:]
+    for i in range(len(results)):
+        bbox = results[i, 2:]
+        label = int(results[i, 0])
+        score = results[i, 1]
+        xmin, ymin, xmax, ymax = [int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3])]
+        # 画人脸框
         draw.rectangle([xmin, ymin, xmax, ymax], outline=(0, 0, 255), width=2)
         # 字体的格式
-        font_style = ImageFont.truetype("font/simfang.ttf", 18, encoding="utf-8")
+        font_style = ImageFont.truetype("simsun.ttc", 18, encoding="utf-8")
         # 绘制文本
-        draw.text((xmin, ymin), '%s, %0.2f' % (names[int(result[0])], result[1]), (0, 255, 0), font=font_style)
-    # 显示图像
-    cv2.imshow('result image', cv2.cvtColor(np.asarray(img), cv2.COLOR_RGB2BGR))
-    cv2.waitKey(1)
+        draw.text((xmin, ymin), '%s, %0.2f' % (names[label], score), (0, 255, 0), font=font_style)
+    cv2.imshow('result', cv2.cvtColor(np.asarray(img), cv2.COLOR_RGB2BGR))
+
+
+def main():
+    while True:
+        # 从摄像头读取图片
+        success, image = cap.read()
+        if success:
+            result = infer(image)
+            print(result)
+            draw_box(image, result)
+            cv2.waitKey(1)
 
 
 if __name__ == '__main__':
-    while True:
-        infer()
+    main()

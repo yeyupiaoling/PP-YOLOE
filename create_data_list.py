@@ -1,16 +1,6 @@
 import os
-import random
 import xml.etree.ElementTree
 from tqdm import tqdm
-
-
-# 打乱数据
-def shuffle_data(data_list_path):
-    with open(data_list_path, 'r', encoding='utf-8') as f:
-        lines = f.readlines()
-        random.shuffle(lines)
-    with open(data_list_path, 'w', encoding='utf-8') as f:
-        f.writelines(lines)
 
 
 # 生成图像列表
@@ -39,9 +29,6 @@ def create(images_dir, annotations_dir, train_list_path, test_list_path, label_f
     f_train.close()
     f_test.close()
     f_label.close()
-
-    # 打乱训练数据
-    shuffle_data(train_list_path)
     print('create data list done!')
 
 

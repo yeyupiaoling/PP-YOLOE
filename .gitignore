@@ -1,13 +1,8 @@
 .idea/
 __pycache__/
-*.py[cod]
-build/
-dist/
-ppdet.egg-info/
-save_models/
-dataset/
 output/
-logs/
-ppdet/
-setup.py
+dataset/
+output_inference/
+log/
+detect_model.nb
 
