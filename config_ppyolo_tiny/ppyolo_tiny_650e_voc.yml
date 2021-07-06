@@ -7,4 +7,4 @@ _BASE_: [
 ]
 
 snapshot_epoch: 1
-weights: output/ppyolo_mbv3_large_qat/0
+weights: output/ppyolo_mbv3_large_qat/best_model

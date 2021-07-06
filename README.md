@@ -1,6 +1,6 @@
 # PP-YOLO
 
-PP-YOLO是PaddleDetection优化和改进的YOLOv3的模型，其精度(COCO数据集mAP)和推理速度均优于YOLOv4模型，PP-YOLO在COCO test-dev2017数据集上精度达到45.9%，在单卡V100上FP32推理速度为72.9 FPS, V100上开启TensorRT下FP16推理速度为155.6 FPS。其中还包含了PP-YOLO tiny模型，此模型后量化压缩模型，将模型体积压缩到1.3M，对精度和预测速度基本无影响。
+PP-YOLO是PaddleDetection优化和改进的YOLOv3的模型，其精度(COCO数据集mAP)和推理速度均优于YOLOv4模型，PP-YOLO在COCO test-dev2017数据集上精度达到45.9%，在单卡V100上FP32推理速度为72.9 FPS, V100上开启TensorRT下FP16推理速度为155.6 FPS。其中还包含了PP-YOLO tiny模型，此模型后量化压缩模型，将模型体积压缩到1.3M，对精度和预测速度基本无影响，在手机上部署，推理速度也是极快的。
 
 
 ## 训练

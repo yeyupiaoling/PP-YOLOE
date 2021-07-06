@@ -31,6 +31,7 @@ TrainReader:
   use_shared_memory: true
 
 EvalReader:
+  collate_batch: false
   sample_transforms:
     - Decode: {}
     - Resize: {target_size: [320, 320], keep_ratio: False, interp: 2}
