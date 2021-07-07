@@ -3,8 +3,9 @@ from ppdet.core.workspace import load_config, merge_config
 from ppdet.engine import Trainer
 from ppdet.slim import build_slim_model
 from ppdet.utils.check import check_gpu, check_version, check_config
-from ppdet.utils.cli import ArgsParser
 from ppdet.utils.logger import setup_logger
+
+from utils import ArgsParser
 
 logger = setup_logger('export_model')
 

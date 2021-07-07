@@ -1,15 +1,16 @@
 import ppdet.utils.check as check
-import ppdet.utils.cli as cli
 from ppdet.core.workspace import load_config, merge_config
 from ppdet.engine import Trainer, init_parallel_env
 from ppdet.slim import build_slim_model
 from ppdet.utils.logger import setup_logger
 
+from utils import ArgsParser
+
 logger = setup_logger('train')
 
 
 def parse_args():
-    parser = cli.ArgsParser()
+    parser = ArgsParser()
     parser.add_argument("--config",
                         type=str,
                         default="config_ppyolo_tiny/ppyolo_tiny_650e_voc.yml",
@@ -17,7 +18,7 @@ def parse_args():
                         help="所使用的模型，有PPYOLO和PPYOLO tiny选择。")
     parser.add_argument("--eval",
                         action='store_true',
-                        default=True,
+                        default=False,
                         help="是否在训练过程中执行评估。")
     parser.add_argument("--resume",
                         default=None,
