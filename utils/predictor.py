@@ -1,5 +1,3 @@
-import os
-
 import cv2
 import numpy as np
 import paddle.inference as paddle_infer
@@ -64,7 +62,7 @@ class DetectionPredictor:
             image = self.load_image(img_temp)
             image_list.append(image)
         scale_factor = np.array(scale_factor_list).astype(np.float32)
-        image = np.array(image_list)
+        image = np.array(image_list).astype(np.float32)
 
         # 设置输入
         self.image_handle.reshape(image.shape)

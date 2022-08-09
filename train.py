@@ -209,6 +209,10 @@ def train():
                 train_step += 1
             start = time.time()
             scheduler.step()
+        if local_rank == 0:
+            # 保存模型
+            save_model(save_model_dir=args.save_model_dir, use_model=f'PPYOLOE_{args.model_type.upper()}',
+                       epoch=epoch_id, model=model, optimizer=optimizer)
         print('\n', '=' * 70)
         # 执行评估
         mAP = evaluate(model=model, eval_loader=eval_loader, metrics=metrics)[0]
@@ -220,9 +224,6 @@ def train():
                 best_mAP = mAP
                 save_model(save_model_dir=args.save_model_dir, use_model=f'PPYOLOE_{args.model_type.upper()}',
                            epoch=epoch_id, model=model, optimizer=optimizer, best_model=True)
-            # 保存模型
-            save_model(save_model_dir=args.save_model_dir, use_model=f'PPYOLOE_{args.model_type.upper()}',
-                       epoch=epoch_id, model=model, optimizer=optimizer)
         logger.info('Test epoch: {}, time/epoch: {}, mAP: {:.5f}, best_mAP: {:.5f}'.format(
             epoch_id, str(timedelta(seconds=(time.time() - start_epoch))), mAP, best_mAP))
         print('=' * 70, '\n')

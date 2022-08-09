@@ -1,11 +1,7 @@
 import paddle2onnx
 
-paddle2onnx.export(model_file="output_inference/PPYOLOE_S/model.pdmodel",
-                   params_file="output_inference/PPYOLOE_S/model.pdiparams",
-                   save_file="output_inference/model.onnx",
-                   opset_version=11,
-                   auto_upgrade_opset=True,
-                   verbose=True,
-                   enable_onnx_checker=True,
-                   enable_experimental_op=True,
-                   enable_optimize=True)
+paddle2onnx.command.program2onnx(model_dir="output_inference/PPYOLOE_M/",
+                                 model_filename="model.pdmodel",
+                                 params_filename="model.pdiparams",
+                                 save_file="output_inference/model.onnx",
+                                 opset_version=11)

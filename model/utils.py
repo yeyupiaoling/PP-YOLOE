@@ -425,9 +425,13 @@ def _prune_input_spec(input_spec, program, targets):
 
 
 def get_infer_cfg_and_input_spec(model, image_shape):
-    image_shape = [None] + image_shape
-    im_shape = [None, 2]
-    scale_factor = [None, 2]
+    if len(image_shape) == 3:
+        image_shape = [None] + image_shape
+        im_shape = [None, 2]
+        scale_factor = [None, 2]
+    else:
+        im_shape = [image_shape[0], 2]
+        scale_factor = [image_shape[0], 2]
 
     for layer in model.sublayers():
         if hasattr(layer, 'convert_to_deploy'):
