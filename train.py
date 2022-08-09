@@ -224,8 +224,8 @@ def train():
                 best_mAP = mAP
                 save_model(save_model_dir=args.save_model_dir, use_model=f'PPYOLOE_{args.model_type.upper()}',
                            epoch=epoch_id, model=model, optimizer=optimizer, best_model=True)
-        logger.info('Test epoch: {}, time/epoch: {}, mAP: {:.5f}, best_mAP: {:.5f}'.format(
-            epoch_id, str(timedelta(seconds=(time.time() - start_epoch))), mAP, best_mAP))
+            logger.info('Test epoch: {}, time/epoch: {}, mAP: {:.5f}, best_mAP: {:.5f}'.format(
+                epoch_id, str(timedelta(seconds=(time.time() - start_epoch))), mAP, best_mAP))
         print('=' * 70, '\n')
 
 
