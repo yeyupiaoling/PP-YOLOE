@@ -9,6 +9,7 @@ from utils.logger import setup_logger
 logger = setup_logger(__name__)
 
 
+# 读取图像文件
 class Decode(object):
     def __init__(self):
         pass

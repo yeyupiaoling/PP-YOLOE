@@ -8,7 +8,7 @@ def main():
     # 打开摄像头并设置摄像头
     cap = cv2.VideoCapture(0)
     # 字体的格式
-    font_style = ImageFont.truetype("simsun.ttc", 18, encoding="utf-8")
+    font_style = ImageFont.truetype("utils/simsun.ttc", 18, encoding="utf-8")
     predictor = DetectionPredictor(model_dir='output_inference/PPYOLOE_S', labels_list_path='dataset/label_list.txt')
     while True:
         # 从摄像头读取图片

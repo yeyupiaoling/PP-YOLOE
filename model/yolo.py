@@ -7,8 +7,6 @@ __all__ = ['PPYOLOE']
 
 
 class PPYOLOE(BaseArch):
-    __category__ = 'architecture'
-    __shared__ = ['data_format']
     def __init__(self,
                  num_classes,
                  depth_mult=0.33,
@@ -25,11 +23,10 @@ class PPYOLOE(BaseArch):
         """
         super(PPYOLOE, self).__init__(data_format=data_format)
         self.backbone = CSPResNet(width_mult=width_mult, depth_mult=depth_mult)
-        self.neck = CustomCSPPAN(in_channels=self.backbone.out_channels[1:], width_mult=width_mult, depth_mult=depth_mult)
+        self.neck = CustomCSPPAN(in_channels=self.backbone.out_channels[1:], width_mult=width_mult,
+                                 depth_mult=depth_mult)
         self.yolo_head = PPYOLOEHead(in_channels=self.neck.out_channels, num_classes=num_classes)
         self.for_mot = for_mot
-
-    __inject__ = ['post_process']
 
     def _forward(self):
         body_feats = self.backbone(self.inputs)

@@ -44,7 +44,7 @@ class CustomDataset(COCODataset):
         assert self.mode in ['train', 'eval'], "数据处理模型不属于['train', 'eval']"
         # 数据预处理和数据增强
         self.train_transform = [Decode(), RandomDistort(), RandomExpand(), RandomCrop(), RandomFlip()]
-        self.eval_transform = [Decode(), Resize(target_size=(640, 640)), NormalizeImage(), Permute()]
+        self.eval_transform = [Decode(), Resize(target_size=[640, 640]), NormalizeImage(), Permute()]
 
     def __getitem__(self, idx):
         # data batch

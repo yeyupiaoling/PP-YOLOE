@@ -1,8 +1,6 @@
 import numpy as np
 import paddle
 import paddle.nn as nn
-from paddle import ParamAttr
-from paddle import to_tensor
 import paddle.nn.functional as F
 from paddle.fluid import core, in_dygraph_mode
 from paddle.fluid.dygraph import parallel_helper
@@ -61,8 +59,7 @@ def get_static_shape(tensor):
 
 
 def paddle_distributed_is_initialized():
-    return core.is_compiled_with_dist(
-    ) and parallel_helper._is_parallel_ctx_initialized()
+    return core.is_compiled_with_dist() and parallel_helper._is_parallel_ctx_initialized()
 
 
 @paddle.jit.not_to_static

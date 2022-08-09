@@ -4,8 +4,8 @@ import paddle.nn as nn
 import paddle.nn.functional as F
 
 from model.utils import iou_similarity
-from utils.bbox_utils import iou_similarity as batch_iou_similarity
-from utils.bbox_utils import bbox_center
+from model.bbox_utils import iou_similarity as batch_iou_similarity
+from model.bbox_utils import bbox_center
 from model.atss_utils import (check_points_inside_bboxes, compute_max_iou_anchor, compute_max_iou_gt)
 
 __all__ = ['ATSSAssigner']

@@ -4,7 +4,7 @@ import paddle.nn.functional as F
 
 from model.atss_assigner import ATSSAssigner
 from model.task_aligned_assigner import TaskAlignedAssigner
-from utils.bbox_utils import batch_distance2bbox
+from model.bbox_utils import batch_distance2bbox
 from model.iou_loss import GIoULoss
 from model.initializer import bias_init_with_prob, constant_, normal_
 from utils.utils import generate_anchors_for_grid_cell

@@ -1,10 +1,10 @@
 import paddle
 import paddle.nn as nn
 import paddle.nn.functional as F
+
 from model.layers import DropBlock
 from model.utils import get_act_fn
-from model.cspresnet import ConvBNLayer, BasicBlock
-from model.cspresnet import ShapeSpec
+from model.cspresnet import *
 
 __all__ = ['CustomCSPPAN']
 
@@ -199,11 +199,3 @@ class CustomCSPPAN(nn.Layer):
             pan_feats.append(route)
 
         return pan_feats[::-1]
-
-    @classmethod
-    def from_config(cls, cfg, input_shape):
-        return {'in_channels': [i.channels for i in input_shape], }
-
-    @property
-    def out_shape(self):
-        return [ShapeSpec(channels=c) for c in self.out_channels]

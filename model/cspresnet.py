@@ -7,7 +7,7 @@ from paddle.regularizer import L2Decay
 from model.utils import get_act_fn
 
 
-__all__ = ['CSPResNet', 'BasicBlock', 'EffectiveSELayer', 'ConvBNLayer', 'ShapeSpec']
+__all__ = ['CSPResNet', 'BasicBlock', 'EffectiveSELayer', 'ConvBNLayer']
 
 
 class ConvBNLayer(nn.Layer):
@@ -259,9 +259,3 @@ class CSPResNet(nn.Layer):
                 channels=self.out_channels[i], stride=self._out_strides[i])
             for i in self.return_idx
         ]
-
-
-class ShapeSpec(
-    namedtuple("_ShapeSpec", ["channels", "height", "width", "stride"])):
-    def __new__(cls, channels=None, height=None, width=None, stride=None):
-        return super(ShapeSpec, cls).__new__(cls, channels, height, width, stride)
