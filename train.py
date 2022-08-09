@@ -23,7 +23,7 @@ logger = setup_logger(__name__)
 parser = argparse.ArgumentParser(description=__doc__)
 add_arg = functools.partial(add_arguments, argparser=parser)
 add_arg('model_type',          str,    'M',                      '所使用的模型类型', choices=["X", "L", "M", "S"])
-add_arg('batch_size',          int,    16,                       '训练的批量大小')
+add_arg('batch_size',          int,    8,                        '训练的批量大小')
 add_arg('num_workers',         int,    4,                        '读取数据的线程数量')
 add_arg('num_epoch',           int,    300,                      '训练的轮数')
 add_arg('num_classes',         int,    80,                       '分类的类别数量')
@@ -214,9 +214,9 @@ def train():
             save_model(save_model_dir=args.save_model_dir, use_model=f'PPYOLOE_{args.model_type.upper()}',
                        epoch=epoch_id, model=model, optimizer=optimizer)
         print('\n', '=' * 70)
-        # 执行评估
-        mAP = evaluate(model=model, eval_loader=eval_loader, metrics=metrics)[0]
         if local_rank == 0:
+            # 执行评估
+            mAP = evaluate(model=model, eval_loader=eval_loader, metrics=metrics)[0]
             writer.add_scalar('Test/mAP', mAP, test_step)
             test_step += 1
             # 保存效果最好的模型
