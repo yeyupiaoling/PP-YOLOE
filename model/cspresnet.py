@@ -237,7 +237,7 @@ class CSPResNet(nn.Layer):
             BasicBlock, channels[i], channels[i + 1], layers[i], 2, act=act))
                                       for i in range(n)])
 
-        self._out_channels = channels[1:]
+        self.out_channels = channels[1:]
         self._out_strides = [4, 8, 16, 32]
         self.return_idx = return_idx
 
@@ -256,7 +256,7 @@ class CSPResNet(nn.Layer):
     def out_shape(self):
         return [
             ShapeSpec(
-                channels=self._out_channels[i], stride=self._out_strides[i])
+                channels=self.out_channels[i], stride=self._out_strides[i])
             for i in self.return_idx
         ]
 

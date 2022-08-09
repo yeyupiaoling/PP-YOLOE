@@ -1,9 +1,9 @@
 import paddle
 import paddle.nn as nn
 import paddle.nn.functional as F
-from model.utils import DropBlock
+from model.layers import DropBlock
 from model.utils import get_act_fn
-from model.cspresnet import ConvBNLayer
+from model.cspresnet import ConvBNLayer, BasicBlock
 from model.cspresnet import ShapeSpec
 
 __all__ = ['CustomCSPPAN']
@@ -95,6 +95,7 @@ class CustomCSPPAN(nn.Layer):
                  trt=False):
 
         super(CustomCSPPAN, self).__init__()
+        print(in_channels)
         out_channels = [max(round(c * width_mult), 1) for c in out_channels]
         block_num = max(round(block_num * depth_mult), 1)
         act = get_act_fn(
@@ -102,7 +103,7 @@ class CustomCSPPAN(nn.Layer):
                                                        (str, dict)) else act
         self.num_blocks = len(in_channels)
         self.data_format = data_format
-        self._out_channels = out_channels
+        self.out_channels = out_channels
         in_channels = in_channels[::-1]
         fpn_stages = []
         fpn_routes = []
@@ -205,4 +206,4 @@ class CustomCSPPAN(nn.Layer):
 
     @property
     def out_shape(self):
-        return [ShapeSpec(channels=c) for c in self._out_channels]
+        return [ShapeSpec(channels=c) for c in self.out_channels]

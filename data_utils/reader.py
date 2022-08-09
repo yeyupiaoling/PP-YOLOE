@@ -17,7 +17,6 @@ class CustomDataset(COCODataset):
     Load dataset with COCO format.
 
     Args:
-        dataset_dir (str): root directory for dataset.
         image_dir (str): directory for images.
         anno_path (str): coco annotation file path.
         data_fields (list): key name of data dictionary, at least have 'image'.
@@ -30,7 +29,6 @@ class CustomDataset(COCODataset):
     """
 
     def __init__(self,
-                 dataset_dir=None,
                  image_dir=None,
                  anno_path=None,
                  data_fields=['image'],
@@ -39,7 +37,7 @@ class CustomDataset(COCODataset):
                  load_crowd=False,
                  allow_empty=False,
                  empty_ratio=1.):
-        super(CustomDataset, self).__init__(dataset_dir, image_dir, anno_path, data_fields,
+        super(CustomDataset, self).__init__(image_dir, anno_path, data_fields,
                                             sample_num, load_crowd, allow_empty, empty_ratio)
         self._curr_iter = 0
         self.mode = mode

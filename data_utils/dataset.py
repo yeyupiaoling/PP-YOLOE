@@ -13,7 +13,6 @@ class COCODataset(Dataset):
     Load dataset with COCO format.
 
     Args:
-        dataset_dir (str): root directory for dataset.
         image_dir (str): directory for images.
         anno_path (str): coco annotation file path.
         data_fields (list): key name of data dictionary, at least have 'image'.
@@ -26,7 +25,6 @@ class COCODataset(Dataset):
     """
 
     def __init__(self,
-                 dataset_dir=None,
                  image_dir=None,
                  anno_path=None,
                  data_fields=['image'],
@@ -38,7 +36,6 @@ class COCODataset(Dataset):
         self.cname2cid = None
         self.catid2clsid = None
         self.load_image_only = False
-        self.dataset_dir = dataset_dir
         self.image_dir = image_dir
         self.anno_path = anno_path
         self.data_fields = data_fields
@@ -58,12 +55,9 @@ class COCODataset(Dataset):
         return records
 
     def parse_dataset(self):
-        anno_path = os.path.join(self.dataset_dir, self.anno_path)
-        image_dir = os.path.join(self.dataset_dir, self.image_dir)
-
-        assert anno_path.endswith('.json'), 'invalid coco annotation file: ' + anno_path
+        assert self.anno_path.endswith('.json'), 'invalid coco annotation file: ' + self.anno_path
         from pycocotools.coco import COCO
-        coco = COCO(anno_path)
+        coco = COCO(self.anno_path)
         img_ids = coco.getImgIds()
         img_ids.sort()
         cat_ids = coco.getCatIds()
@@ -78,7 +72,7 @@ class COCODataset(Dataset):
         if 'annotations' not in coco.dataset:
             self.load_image_only = True
             logger.warning('Annotation file: {} does not contains ground truth '
-                           'and load image information only.'.format(anno_path))
+                           'and load image information only.'.format(self.anno_path))
 
         for img_id in img_ids:
             img_anno = coco.loadImgs([img_id])[0]
@@ -86,7 +80,7 @@ class COCODataset(Dataset):
             im_w = float(img_anno['width'])
             im_h = float(img_anno['height'])
 
-            im_path = os.path.join(image_dir, im_fname) if image_dir else im_fname
+            im_path = os.path.join(self.image_dir, im_fname) if self.image_dir else im_fname
             is_empty = False
             if not os.path.exists(im_path):
                 logger.warning('Illegal image file: {}, and it will be ignored'.format(im_path))
@@ -207,8 +201,8 @@ class COCODataset(Dataset):
             ct += 1
             if 0 < self.sample_num <= ct:
                 break
-        assert ct > 0, f'not found any coco record in {anno_path}'
-        logger.debug('{} samples in file {}'.format(ct, anno_path))
+        assert ct > 0, f'not found any coco record in {self.anno_path}'
+        logger.debug('{} samples in file {}'.format(ct, self.anno_path))
         if self.allow_empty and len(empty_records) > 0:
             empty_records = self._sample_empty(empty_records, len(records))
             records += empty_records

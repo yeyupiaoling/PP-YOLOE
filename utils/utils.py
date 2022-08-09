@@ -1,46 +1,30 @@
+import distutils.util
 import os
-import xml.etree.ElementTree as ET
-from argparse import ArgumentParser, RawDescriptionHelpFormatter
+import shutil
 
 import paddle
-import yaml
+import requests
+from tqdm import tqdm
+
+from utils.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 
-class ArgsParser(ArgumentParser):
-    def __init__(self):
-        super(ArgsParser, self).__init__(
-            formatter_class=RawDescriptionHelpFormatter)
-        self.add_argument(
-            "-o", "--opt", nargs='*', help="set configuration options")
+def print_arguments(args):
+    print("-----------  Configuration Arguments -----------")
+    for arg, value in sorted(vars(args).items()):
+        print("%s: %s" % (arg, value))
+    print("------------------------------------------------")
 
-    def parse_args(self, argv=None):
-        args = super(ArgsParser, self).parse_args(argv)
-        assert args.config is not None, \
-            "Please specify --config=configure_file_path."
-        args.opt = self._parse_opt(args.opt)
-        return args
 
-    def _parse_opt(self, opts):
-        config = {}
-        if not opts:
-            return config
-        for s in opts:
-            s = s.strip()
-            k, v = s.split('=', 1)
-            if '.' not in k:
-                config[k] = yaml.load(v, Loader=yaml.Loader)
-            else:
-                keys = k.split('.')
-                if keys[0] not in config:
-                    config[keys[0]] = {}
-                cur = config[keys[0]]
-                for idx, key in enumerate(keys[1:]):
-                    if idx == len(keys) - 2:
-                        cur[key] = yaml.load(v, Loader=yaml.Loader)
-                    else:
-                        cur[key] = {}
-                        cur = cur[key]
-        return config
+def add_arguments(argname, type, default, help, argparser, **kwargs):
+    type = distutils.util.strtobool if type == bool else type
+    argparser.add_argument("--" + argname,
+                           default=default,
+                           type=type,
+                           help=help + ' 默认: %(default)s.',
+                           **kwargs)
 
 
 def generate_anchors_for_grid_cell(feats,
@@ -93,3 +77,35 @@ def generate_anchors_for_grid_cell(feats,
     stride_tensor = paddle.concat(stride_tensor)
     stride_tensor.stop_gradient = True
     return anchors, anchor_points, num_anchors_list, stride_tensor
+
+
+def get_pretrained_model(model_type: str, pretrained_dir='pretrained_models'):
+    assert model_type.upper() in ["X", "L", "M", "S"]
+    url = f"https://paddledet.bj.bcebos.com/models/pretrained/CSPResNetb_{model_type.lower()}_pretrained.pdparams"
+    pretrained_model_path = os.path.join(pretrained_dir, f"CSPResNetb_{model_type.lower()}_pretrained.pdparams")
+    if os.path.exists(pretrained_model_path):
+        return pretrained_model_path
+    else:
+        logger.info("开始下载预训练模型")
+        req = requests.get(url, stream=True)
+        if req.status_code != 200:
+            raise RuntimeError("Downloading from {} failed with code {}!".format(url, req.status_code))
+
+        # 避免下载中断，先保存为临时文件
+        tmp_fullname = pretrained_model_path + "_tmp"
+        total_size = req.headers.get('content-length')
+        os.makedirs(os.path.dirname(tmp_fullname), exist_ok=True)
+        with open(tmp_fullname, 'wb') as f:
+            if total_size:
+                for chunk in tqdm(
+                        req.iter_content(chunk_size=1024),
+                        total=(int(total_size) + 1023) // 1024,
+                        unit='KB'):
+                    f.write(chunk)
+            else:
+                for chunk in req.iter_content(chunk_size=1024):
+                    if chunk:
+                        f.write(chunk)
+        shutil.move(tmp_fullname, pretrained_model_path)
+        logger.info(f"预训练模型下载成功，保存路径：{pretrained_model_path}")
+        return pretrained_model_path

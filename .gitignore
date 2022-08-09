@@ -1,8 +1,6 @@
-.idea/
-__pycache__/
-output/
-dataset/
-output_inference/
+.idea
 log/
-detect_model.nb
-
+dataset/
+pretrained_models/
+output/
+output_inference/

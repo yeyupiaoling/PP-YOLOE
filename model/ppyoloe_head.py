@@ -2,9 +2,11 @@ import paddle
 import paddle.nn as nn
 import paddle.nn.functional as F
 
+from model.atss_assigner import ATSSAssigner
+from model.task_aligned_assigner import TaskAlignedAssigner
 from utils.bbox_utils import batch_distance2bbox
 from model.iou_loss import GIoULoss
-from utils.initializer import bias_init_with_prob, constant_, normal_
+from model.initializer import bias_init_with_prob, constant_, normal_
 from utils.utils import generate_anchors_for_grid_cell
 from model.cspresnet import ConvBNLayer
 from model.utils import get_static_shape, paddle_distributed_is_initialized, get_act_fn
@@ -43,18 +45,17 @@ class PPYOLOEHead(nn.Layer):
                  reg_max=16,
                  static_assigner_epoch=100,
                  use_varifocal_loss=True,
-                 static_assigner='ATSSAssigner',
-                 assigner='TaskAlignedAssigner',
-                 nms='MultiClassNMS',
                  eval_size=None,
-                 loss_weight={
-                     'class': 1.0,
-                     'iou': 2.5,
-                     'dfl': 0.5,
-                 },
+                 loss_weight=None,
                  trt=False,
                  exclude_nms=False):
         super(PPYOLOEHead, self).__init__()
+        if loss_weight is None:
+            loss_weight = {
+                'class': 1.0,
+                'iou': 2.5,
+                'dfl': 0.5,
+            }
         assert len(in_channels) > 0, "len(in_channels) should > 0"
         self.in_channels = in_channels
         self.num_classes = num_classes
@@ -68,9 +69,9 @@ class PPYOLOEHead(nn.Layer):
         self.eval_size = eval_size
 
         self.static_assigner_epoch = static_assigner_epoch
-        self.static_assigner = static_assigner
-        self.assigner = assigner
-        self.nms = nms
+        self.static_assigner = ATSSAssigner(num_classes=num_classes)
+        self.assigner = TaskAlignedAssigner()
+        self.nms = MultiClassNMS()
         if isinstance(self.nms, MultiClassNMS) and trt:
             self.nms.trt = trt
         self.exclude_nms = exclude_nms
@@ -340,14 +341,8 @@ class PPYOLOEHead(nn.Layer):
         loss = self.loss_weight['class'] * loss_cls + \
                self.loss_weight['iou'] * loss_iou + \
                self.loss_weight['dfl'] * loss_dfl
-        out_dict = {
-            'loss': loss,
-            'loss_cls': loss_cls,
-            'loss_iou': loss_iou,
-            'loss_dfl': loss_dfl,
-            'loss_l1': loss_l1,
-        }
-        return out_dict
+
+        return {'loss': loss}
 
     def post_process(self, head_outs, img_shape, scale_factor):
         pred_scores, pred_dist, anchor_points, stride_tensor = head_outs

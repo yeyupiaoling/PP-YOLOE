@@ -17,17 +17,13 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
-
 import paddle
 
-from ppdet.core.workspace import register, serializable
 from utils.bbox_utils import bbox_iou
 
 __all__ = ['IouLoss', 'GIoULoss', 'DIouLoss']
 
 
-@register
-@serializable
 class IouLoss(object):
     """
     iou loss, see https://arxiv.org/abs/1908.03851
@@ -64,8 +60,6 @@ class IouLoss(object):
         return loss_iou
 
 
-@register
-@serializable
 class GIoULoss(object):
     """
     Generalized Intersection over Union, see https://arxiv.org/abs/1902.09630
@@ -139,8 +133,6 @@ class GIoULoss(object):
         return loss * self.loss_weight
 
 
-@register
-@serializable
 class DIouLoss(GIoULoss):
     """
     Distance-IoU Loss, see https://arxiv.org/abs/1911.08287

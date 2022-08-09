@@ -1,80 +1,204 @@
-import ppdet.utils.check as check
-from ppdet.core.workspace import load_config, merge_config
-from ppdet.engine import Trainer, init_parallel_env
-from ppdet.slim import build_slim_model
-from ppdet.utils.logger import setup_logger
+import argparse
+import functools
+import os
+import shutil
+import time
+from datetime import timedelta
 
-from utils import ArgsParser
+import paddle
+from paddle.distributed import fleet
+from paddle.io import DataLoader
+from visualdl import LogWriter
 
-logger = setup_logger('train')
+from data_utils.reader import CustomDataset, BatchCompose
+from metrics.metrics import COCOMetric
+from model.yolo import PPYOLOE
+from utils.logger import setup_logger
+from utils.lr import cosine_decay_with_warmup
+from utils.utils import add_arguments, print_arguments
+from utils.utils import get_pretrained_model
 
+logger = setup_logger(__name__)
 
-def parse_args():
-    parser = ArgsParser()
-    parser.add_argument("--config",
-                        type=str,
-                        default="config_ppyolo_tiny/ppyolo_tiny_650e_voc.yml",
-                        choices=['config_ppyolo_tiny/ppyolo_tiny_650e_voc.yml', 'config_ppyolo/ppyolo_r50vd_dcn_1x_voc.yml'],
-                        help="所使用的模型，有PPYOLO和PPYOLO tiny选择。")
-    parser.add_argument("--eval",
-                        action='store_true',
-                        default=False,
-                        help="是否在训练过程中执行评估。")
-    parser.add_argument("--resume",
-                        default=None,
-                        help="恢复之前训练的状态，路径不能包含模型后缀名。")
-    parser.add_argument("--slim_config",
-                        type=str,
-                        default='config_ppyolo_tiny/ppyolo_mbv3_large_qat.yml',
-                        choices=['config_ppyolo_tiny/ppyolo_mbv3_large_qat.yml', 'config_ppyolo/ppyolo_r50vd_qat_pact.yml'],
-                        help="使用量化训练的配置文件路径，设置为None则不使用量化训练。")
-    args = parser.parse_args()
-    return args
-
-
-def run(FLAGS, cfg):
-    # init parallel environment if nranks > 1
-    init_parallel_env()
-
-    # build trainer
-    trainer = Trainer(cfg, mode='train')
-
-    # load weights
-    if FLAGS.resume is not None:
-        trainer.resume_weights(FLAGS.resume)
-    elif 'pretrain_weights' in cfg and cfg.pretrain_weights:
-        trainer.load_weights(cfg.pretrain_weights)
-
-    # training
-    trainer.train(FLAGS.eval)
+parser = argparse.ArgumentParser(description=__doc__)
+add_arg = functools.partial(add_arguments, argparser=parser)
+add_arg('model_type',       str,    'M',                      '所使用的模型类型', choices=["X", "L", "M", "S"])
+add_arg('batch_size',       int,    4,                        '训练的批量大小')
+add_arg('num_workers',      int,    4,                        '读取数据的线程数量')
+add_arg('num_epoch',        int,    300,                      '训练的轮数')
+add_arg('num_classes',      int,    1,                        '分类的类别数量')
+add_arg('learning_rate',    float,  1e-3,                     '初始学习率的大小')
+add_arg('image_dir',        str,    'dataset/',               '图片存放的路径')
+add_arg('train_anno_path',  str,    'dataset/train.json',     '训练数据标注信息json文件路径')
+add_arg('eval_anno_path',   str,    'dataset/eval.json',      '评估标注信息json文件路径')
+add_arg('save_model_dir',   str,    'output/',                '模型保存的路径')
+add_arg('resume_model',     str,    None,                     '恢复训练的模型文件夹，当为None则不使用恢复模型')
+add_arg('pretrained_model', str,    None,                     '预训练模型的模型文件，当为None则不使用预训练模型')
+args = parser.parse_args()
+print_arguments(args)
 
 
-def main():
-    FLAGS = parse_args()
-    cfg = load_config(FLAGS.config)
-    for key in cfg.keys():
-        value = cfg[key]
-        if value != {}:
-            print(key, ":", value)
-    cfg['fp16'] = False
-    cfg['fleet'] = False
-    cfg['use_vdl'] = True
-    cfg['vdl_log_dir'] = "log"
-    cfg['save_prediction_only'] = False
-    merge_config(FLAGS.opt)
-
-    if 'norm_type' in cfg and cfg['norm_type'] == 'sync_bn' and not cfg.use_gpu:
-        cfg['norm_type'] = 'bn'
-
-    if FLAGS.slim_config:
-        cfg = build_slim_model(cfg, FLAGS.slim_config)
-
-    check.check_config(cfg)
-    check.check_gpu(cfg.use_gpu)
-    check.check_version()
-
-    run(FLAGS, cfg)
+# 评估模型
+@paddle.no_grad()
+def evaluate(model, eval_loader, metrics: COCOMetric):
+    model.eval()
+    for batch_id, data in enumerate(eval_loader()):
+        outputs = model(data)
+        metrics.update(inputs=data, outputs=outputs)
+    result = metrics.accumulate()
+    metrics.reset()
+    model.train()
+    return result
 
 
-if __name__ == "__main__":
-    main()
+# 保存模型
+def save_model(save_model_dir, use_model, epoch, model, optimizer, best_model=False):
+    if not best_model:
+        model_path = os.path.join(save_model_dir, use_model, 'epoch_{}'.format(epoch))
+        os.makedirs(model_path, exist_ok=True)
+        paddle.save(model.state_dict(), os.path.join(model_path, 'model.pdparams'))
+        paddle.save(optimizer.state_dict(), os.path.join(model_path, 'optimizer.pdopt'))
+        last_model_path = os.path.join(save_model_dir, use_model, 'last_model')
+        shutil.rmtree(last_model_path, ignore_errors=True)
+        shutil.copytree(model_path, last_model_path)
+        # 删除旧的模型
+        old_model_path = os.path.join(save_model_dir, use_model, 'epoch_{}'.format(epoch - 3))
+        if os.path.exists(old_model_path):
+            shutil.rmtree(old_model_path)
+    else:
+        model_path = os.path.join(save_model_dir, use_model, 'best_model')
+        paddle.save(model.state_dict(), os.path.join(model_path, 'model.pdparams'))
+        paddle.save(optimizer.state_dict(), os.path.join(model_path, 'optimizer.pdopt'))
+    logger.info('已保存模型：{}'.format(model_path))
+
+
+# 训练模型
+def train():
+    # 获取有多少张显卡训练
+    nranks = paddle.distributed.get_world_size()
+    local_rank = paddle.distributed.get_rank()
+    if nranks > 1:
+        # 初始化Fleet环境
+        fleet.init(is_collective=True)
+    if local_rank == 0:
+        # 日志记录器
+        writer = LogWriter(logdir='log')
+    # 获取数据
+    train_dataset = CustomDataset(image_dir=args.image_dir,
+                                  anno_path=args.train_anno_path,
+                                  data_fields=['image', 'gt_bbox', 'gt_class', 'is_crowd'],
+                                  mode='train')
+    train_batch_sampler = paddle.io.DistributedBatchSampler(train_dataset, batch_size=args.batch_size, shuffle=True)
+    collate_fn = BatchCompose()
+    train_loader = DataLoader(dataset=train_dataset,
+                              batch_sampler=train_batch_sampler,
+                              collate_fn=collate_fn,
+                              num_workers=args.num_workers)
+    # 评估数据
+    eval_dataset = CustomDataset(image_dir=args.image_dir,
+                                 anno_path=args.eval_anno_path,
+                                 data_fields=['image'],
+                                 mode='eval')
+    eval_loader = DataLoader(dataset=eval_dataset,
+                             batch_size=args.batch_size,
+                             num_workers=args.num_workers)
+
+    if args.model_type == 'X':
+        model = PPYOLOE(num_classes=args.num_classes, depth_mult=1.33, width_mult=1.25)
+    elif args.model_type == 'L':
+        model = PPYOLOE(num_classes=args.num_classes, depth_mult=1.0, width_mult=1.0)
+    elif args.model_type == 'M':
+        model = PPYOLOE(num_classes=args.num_classes, depth_mult=0.67, width_mult=0.75)
+    elif args.model_type == 'S':
+        model = PPYOLOE(num_classes=args.num_classes, depth_mult=0.33, width_mult=0.50)
+    else:
+        raise Exception(f'模型类型不存在，model_type：{args.model_type}')
+
+    metrics = COCOMetric(anno_file=args.eval_anno_path)
+
+    # 学习率衰减
+    scheduler = cosine_decay_with_warmup(learning_rate=args.learning_rate,
+                                         max_epochs=int(args.num_epoch*1.2),
+                                         step_per_epoch=len(train_loader))
+    # 设置优化方法
+    optimizer = paddle.optimizer.Momentum(parameters=model.parameters(),
+                                          learning_rate=scheduler,
+                                          momentum=0.9,
+                                          weight_decay=paddle.regularizer.L2Decay(5e-4))
+
+    # 加载预训练模型
+    if args.pretrained_model is not None:
+        assert os.path.exists(args.pretrained_model), f"预训练模型不存在，路径：{args.pretrained_model}"
+        model_dict = model.state_dict()
+        model_state_dict = paddle.load(args.pretrained_model)
+        for name, weight in model_dict.items():
+            if name in model_state_dict.keys():
+                if weight.shape != list(model_state_dict[name].shape):
+                    print('{} not used, shape {} unmatched with {} in model.'.
+                          format(name, list(model_state_dict[name].shape), weight.shape))
+                    model_state_dict.pop(name, None)
+            else:
+                print('Lack weight: {}'.format(name))
+        model.set_state_dict(model_state_dict)
+        logger.info('成功加载预训练模型：{}'.format(args.pretrained_model))
+    else:
+        # 加载官方预训练模型
+        pretrained_path = get_pretrained_model(model_type=args.model_type)
+        model.set_state_dict(paddle.load(pretrained_path))
+        logger.info('成功加载预训练模型：{}'.format(pretrained_path))
+
+    # 加载恢复模型
+    last_epoch = 0
+    if args.resume_model is not None:
+        assert os.path.exists(os.path.join(args.resume_model, 'model.pdparams')), "模型参数文件不存在！"
+        assert os.path.exists(os.path.join(args.resume_model, 'optimizer.pdopt')), "优化方法参数文件不存在！"
+        model.set_state_dict(paddle.load(os.path.join(args.resume_model, 'model.pdparams')))
+        optimizer_state = paddle.load(os.path.join(args.resume_model, 'optimizer.pdopt'))
+        optimizer.set_state_dict(optimizer_state)
+        last_epoch = optimizer_state['LR_Scheduler']['last_epoch'] // len(train_loader)
+        logger.info('成功恢复模型参数和优化方法参数：{}'.format(args.resume_model))
+
+    best_mAP = 0
+    train_times = []
+    sum_batch = len(train_loader) * args.num_epoch
+    # 开始训练
+    for epoch_id in range(last_epoch, args.num_epoch):
+        start_epoch = time.time()
+        start = time.time()
+        loss_sum = []
+        for batch_id, data in enumerate(train_loader()):
+            data['epoch_id'] = epoch_id
+            output = model(data)
+            loss = output['loss']
+            loss_sum.append(loss.numpy()[0])
+            loss.backward()
+            optimizer.step()
+            optimizer.clear_grad()
+            train_times.append((time.time() - start) * 1000)
+            # 打印
+            if batch_id % 100 == 0:
+                eta_sec = (sum(train_times) / len(train_times)) * (sum_batch - epoch_id * len(train_loader) - batch_id)
+                eta_str = str(timedelta(seconds=int(eta_sec / 1000)))
+                logger.info(f'Train epoch [{epoch_id}/{args.num_epoch}], '
+                            f'batch: [{batch_id}/{len(train_loader)}], '
+                            f'loss: {(sum(loss_sum) / len(loss_sum)):.5f}, '
+                            f'lr: {scheduler.get_lr():.8f}, '
+                            f'eta: {eta_str}')
+                train_times = []
+            start = time.time()
+            scheduler.step()
+        print('\n', '=' * 70)
+        mAP = evaluate(model=model, eval_loader=eval_loader, metrics=metrics)[0]
+        if mAP >= best_mAP:
+            best_mAP = mAP
+            save_model(save_model_dir=args.save_model_dir, use_model=f'PPYOLOE_{args.model_type.upper()}',
+                       epoch=epoch_id, model=model, optimizer=optimizer, best_model=True)
+        save_model(save_model_dir=args.save_model_dir, use_model=f'PPYOLOE_{args.model_type.upper()}',
+                   epoch=epoch_id, model=model, optimizer=optimizer)
+        logger.info('Test epoch: {}, time/epoch: {}, mAP: {:.5f}, best_mAP: {:.5f}'.format(
+            epoch_id, str(timedelta(seconds=(time.time() - start_epoch))), mAP, best_mAP))
+        print('=' * 70, '\n')
+
+
+if __name__ == '__main__':
+    train()
