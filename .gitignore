@@ -1,6 +1,6 @@
 .idea
 log/
-dataset/
+dataset/*
 pretrained_models/
 output/
 output_inference/
