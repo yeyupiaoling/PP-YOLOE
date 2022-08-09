@@ -38,6 +38,11 @@ python export_model.py --resume_model=None
 python infer.py --image_path=dataset/test.jpg
 ```
 
+识别结果：
+
+![识别结果](./dataset/result.jpg)
+
+
 # 训练模型
 
 
@@ -93,6 +98,11 @@ python infer.py --image_path=dataset/test.jpg --model_dir=output_inference/PPYOL
 python infer_camera.py --device_id=0 --model_dir=output_inference/PPYOLOE_M
 ```
 
+识别结果：
+
+![识别结果](./dataset/result.jpg)
+
+
 ## ONNX
 
 使用ONNX预测接口执行预测，使用这种方式的话需要额外安装`onnxruntime`库，并且需要找出对应的模型进行下面命令可以导出ONNX模型，需要根据实际情况修改模型的路径`model_dir`。
@@ -104,6 +114,11 @@ python to_onnx_model.py
 ```shell
 python infer_onnx.py --image_path=dataset/test.jpg --onnx_model=output_inference/model.onnx
 ```
+
+识别结果：
+
+![识别结果](./dataset/result.jpg)
+
 
 ## Android
 
