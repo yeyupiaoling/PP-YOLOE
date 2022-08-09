@@ -36,15 +36,28 @@ class CustomDataset(COCODataset):
                  sample_num=-1,
                  load_crowd=False,
                  allow_empty=False,
-                 empty_ratio=1.):
+                 empty_ratio=1.,
+                 use_random_distort=True,
+                 use_random_expand=True,
+                 use_random_crop=True,
+                 use_random_flip=True):
         super(CustomDataset, self).__init__(image_dir, anno_path, data_fields,
                                             sample_num, load_crowd, allow_empty, empty_ratio)
         self._curr_iter = 0
         self.mode = mode
         assert self.mode in ['train', 'eval'], "数据处理模型不属于['train', 'eval']"
-        # 数据预处理和数据增强
-        self.train_transform = [Decode(), RandomDistort(), RandomExpand(), RandomCrop(), RandomFlip()]
+        # 数据预处理
+        self.train_transform = [Decode()]
         self.eval_transform = [Decode(), Resize(target_size=[640, 640]), NormalizeImage(), Permute()]
+        # 数据增强
+        if use_random_distort:
+            self.train_transform.append(RandomDistort())
+        if use_random_expand:
+            self.train_transform.append(RandomExpand())
+        if use_random_crop:
+            self.train_transform.append(RandomCrop())
+        if use_random_flip:
+            self.train_transform.append(RandomFlip())
 
     def __getitem__(self, idx):
         # data batch

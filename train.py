@@ -22,18 +22,22 @@ logger = setup_logger(__name__)
 
 parser = argparse.ArgumentParser(description=__doc__)
 add_arg = functools.partial(add_arguments, argparser=parser)
-add_arg('model_type',       str,    'S',                      '所使用的模型类型', choices=["X", "L", "M", "S"])
-add_arg('batch_size',       int,    8,                        '训练的批量大小')
-add_arg('num_workers',      int,    4,                        '读取数据的线程数量')
-add_arg('num_epoch',        int,    300,                      '训练的轮数')
-add_arg('num_classes',      int,    1,                        '分类的类别数量')
-add_arg('learning_rate',    float,  1e-3,                     '初始学习率的大小')
-add_arg('image_dir',        str,    'dataset/',               '图片存放的路径')
-add_arg('train_anno_path',  str,    'dataset/train.json',     '训练数据标注信息json文件路径')
-add_arg('eval_anno_path',   str,    'dataset/eval.json',      '评估标注信息json文件路径')
-add_arg('save_model_dir',   str,    'output/',                '模型保存的路径')
-add_arg('resume_model',     str,    None,                     '恢复训练的模型文件夹，当为None则不使用恢复模型')
-add_arg('pretrained_model', str,    None,                     '预训练模型的模型文件，当为None则不使用预训练模型')
+add_arg('model_type',          str,    'M',                      '所使用的模型类型', choices=["X", "L", "M", "S"])
+add_arg('batch_size',          int,    16,                       '训练的批量大小')
+add_arg('num_workers',         int,    4,                        '读取数据的线程数量')
+add_arg('num_epoch',           int,    300,                      '训练的轮数')
+add_arg('num_classes',         int,    80,                       '分类的类别数量')
+add_arg('learning_rate',       float,  0.0025,                   '初始学习率的大小')
+add_arg('image_dir',           str,    'dataset/',               '图片存放的路径')
+add_arg('train_anno_path',     str,    'dataset/train.json',     '训练数据标注信息json文件路径')
+add_arg('eval_anno_path',      str,    'dataset/eval.json',      '评估标注信息json文件路径')
+add_arg('save_model_dir',      str,    'output/',                '模型保存的路径')
+add_arg('use_random_distort',  bool,   True,                     '是否使用随机变形数据增强')
+add_arg('use_random_expand',   bool,   True,                     '是否使用随机扩张数据增强')
+add_arg('use_random_crop',     bool,   True,                     '是否使用随机裁剪数据增强')
+add_arg('use_random_flip',     bool,   True,                     '是否使用随机翻转数据增强')
+add_arg('resume_model',        str,    None,                     '恢复训练的模型文件夹，当为None则不使用恢复模型')
+add_arg('pretrained_model',    str,    None,                     '预训练模型的模型文件，当为None则不使用预训练模型')
 args = parser.parse_args()
 print_arguments(args)
 
@@ -87,7 +91,11 @@ def train():
     train_dataset = CustomDataset(image_dir=args.image_dir,
                                   anno_path=args.train_anno_path,
                                   data_fields=['image', 'gt_bbox', 'gt_class', 'is_crowd'],
-                                  mode='train')
+                                  mode='train',
+                                  use_random_distort=args.use_random_distort,
+                                  use_random_expand=args.use_random_expand,
+                                  use_random_crop=args.use_random_crop,
+                                  use_random_flip=args.use_random_flip)
     train_batch_sampler = paddle.io.DistributedBatchSampler(train_dataset, batch_size=args.batch_size, shuffle=True)
     collate_fn = BatchCompose()
     train_loader = DataLoader(dataset=train_dataset,
@@ -103,6 +111,7 @@ def train():
                              batch_size=args.batch_size,
                              num_workers=args.num_workers)
 
+    # 获取模型
     if args.model_type == 'X':
         model = PPYOLOE(num_classes=args.num_classes, depth_mult=1.33, width_mult=1.25)
     elif args.model_type == 'L':
@@ -114,10 +123,14 @@ def train():
     else:
         raise Exception(f'模型类型不存在，model_type：{args.model_type}')
 
+    if nranks > 1:
+        model = paddle.nn.SyncBatchNorm.convert_sync_batchnorm(model)
+
+    # 评估方法
     metrics = COCOMetric(anno_file=args.eval_anno_path)
 
     # 学习率衰减
-    scheduler = cosine_decay_with_warmup(learning_rate=args.learning_rate,
+    scheduler = cosine_decay_with_warmup(learning_rate=args.learning_rate * nranks,
                                          max_epochs=int(args.num_epoch*1.2),
                                          step_per_epoch=len(train_loader))
     # 设置优化方法
@@ -125,6 +138,11 @@ def train():
                                           learning_rate=scheduler,
                                           momentum=0.9,
                                           weight_decay=paddle.regularizer.L2Decay(5e-4))
+
+    if nranks > 1:
+        # 设置支持多卡训练
+        model = fleet.distributed_model(model)
+        optimizer = fleet.distributed_optimizer(optimizer)
 
     # 加载预训练模型
     if args.pretrained_model is not None:
@@ -158,8 +176,8 @@ def train():
         last_epoch = optimizer_state['LR_Scheduler']['last_epoch'] // len(train_loader)
         logger.info('成功恢复模型参数和优化方法参数：{}'.format(args.resume_model))
 
-    best_mAP = 0
     train_times = []
+    best_mAP, train_step, test_step = 0, 0, 0
     sum_batch = len(train_loader) * args.num_epoch
     # 开始训练
     for epoch_id in range(last_epoch, args.num_epoch):
@@ -185,16 +203,26 @@ def train():
                             f'lr: {scheduler.get_lr():.8f}, '
                             f'eta: {eta_str}')
                 train_times = []
+            if local_rank == 0:
+                writer.add_scalar('Train/Learning rate', scheduler.get_lr(), train_step)
+                writer.add_scalar('Train/Loss', (sum(loss_sum) / len(loss_sum)), train_step)
+                train_step += 1
             start = time.time()
             scheduler.step()
         print('\n', '=' * 70)
+        # 执行评估
         mAP = evaluate(model=model, eval_loader=eval_loader, metrics=metrics)[0]
-        if mAP >= best_mAP:
-            best_mAP = mAP
+        if local_rank == 0:
+            writer.add_scalar('Test/mAP', mAP, test_step)
+            test_step += 1
+            # 保存效果最好的模型
+            if mAP >= best_mAP:
+                best_mAP = mAP
+                save_model(save_model_dir=args.save_model_dir, use_model=f'PPYOLOE_{args.model_type.upper()}',
+                           epoch=epoch_id, model=model, optimizer=optimizer, best_model=True)
+            # 保存模型
             save_model(save_model_dir=args.save_model_dir, use_model=f'PPYOLOE_{args.model_type.upper()}',
-                       epoch=epoch_id, model=model, optimizer=optimizer, best_model=True)
-        save_model(save_model_dir=args.save_model_dir, use_model=f'PPYOLOE_{args.model_type.upper()}',
-                   epoch=epoch_id, model=model, optimizer=optimizer)
+                       epoch=epoch_id, model=model, optimizer=optimizer)
         logger.info('Test epoch: {}, time/epoch: {}, mAP: {:.5f}, best_mAP: {:.5f}'.format(
             epoch_id, str(timedelta(seconds=(time.time() - start_epoch))), mAP, best_mAP))
         print('=' * 70, '\n')

@@ -7,7 +7,7 @@ from model.task_aligned_assigner import TaskAlignedAssigner
 from model.bbox_utils import batch_distance2bbox
 from model.iou_loss import GIoULoss
 from model.initializer import bias_init_with_prob, constant_, normal_
-from utils.utils import generate_anchors_for_grid_cell
+from model.utils import generate_anchors_for_grid_cell
 from model.cspresnet import ConvBNLayer
 from model.utils import get_static_shape, paddle_distributed_is_initialized, get_act_fn
 from model.layers import MultiClassNMS

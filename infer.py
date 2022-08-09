@@ -6,10 +6,10 @@ from utils.predictor import DetectionPredictor
 
 
 def main():
-    image_path = 'dataset/images2/xcf_105866722_1.jpg'
+    image_path = 'dataset/test.jpg'
     # 字体的格式
-    font_style = ImageFont.truetype("utils/simsun.ttc", 18, encoding="utf-8")
-    predictor = DetectionPredictor(model_dir='output_inference/PPYOLOE_S', labels_list_path='dataset/label_list.txt')
+    font_style = ImageFont.truetype("utils/simsun.ttc", 14, encoding="utf-8")
+    predictor = DetectionPredictor(model_dir='output_inference/PPYOLOE_M', labels_list_path='dataset/label_list.txt')
     image = cv2.imdecode(np.fromfile(image_path, dtype=np.uint8), cv2.IMREAD_COLOR)
     result = predictor.infer([image])[0]
     print('识别结果：', result)

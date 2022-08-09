@@ -4,3 +4,4 @@ dataset/
 pretrained_models/
 output/
 output_inference/
+bbox.json

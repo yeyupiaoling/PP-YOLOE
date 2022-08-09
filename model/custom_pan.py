@@ -93,9 +93,7 @@ class CustomCSPPAN(nn.Layer):
                  width_mult=1.0,
                  depth_mult=1.0,
                  trt=False):
-
         super(CustomCSPPAN, self).__init__()
-        print(in_channels)
         out_channels = [max(round(c * width_mult), 1) for c in out_channels]
         block_num = max(round(block_num * depth_mult), 1)
         act = get_act_fn(

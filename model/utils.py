@@ -5,6 +5,7 @@ import paddle.nn.functional as F
 from paddle.fluid import core, in_dygraph_mode
 from paddle.fluid.dygraph import parallel_helper
 from paddle.fluid.layer_helper import LayerHelper
+from paddle.static import InputSpec
 
 
 def identity(x):
@@ -351,3 +352,93 @@ class JDEBBoxPostProcess(nn.Layer):
                 bbox_pred = self.fake_bbox_pred
                 bbox_num = self.fake_bbox_num
             return _, bbox_pred, bbox_num, _
+
+
+def generate_anchors_for_grid_cell(feats,
+                                   fpn_strides,
+                                   grid_cell_size=5.0,
+                                   grid_cell_offset=0.5):
+    r"""
+    Like ATSS, generate anchors based on grid size.
+    Args:
+        feats (List[Tensor]): shape[s, (b, c, h, w)]
+        fpn_strides (tuple|list): shape[s], stride for each scale feature
+        grid_cell_size (float): anchor size
+        grid_cell_offset (float): The range is between 0 and 1.
+    Returns:
+        anchors (Tensor): shape[l, 4], "xmin, ymin, xmax, ymax" format.
+        anchor_points (Tensor): shape[l, 2], "x, y" format.
+        num_anchors_list (List[int]): shape[s], contains [s_1, s_2, ...].
+        stride_tensor (Tensor): shape[l, 1], contains the stride for each scale.
+    """
+    assert len(feats) == len(fpn_strides)
+    anchors = []
+    anchor_points = []
+    num_anchors_list = []
+    stride_tensor = []
+    for feat, stride in zip(feats, fpn_strides):
+        _, _, h, w = feat.shape
+        cell_half_size = grid_cell_size * stride * 0.5
+        shift_x = (paddle.arange(end=w) + grid_cell_offset) * stride
+        shift_y = (paddle.arange(end=h) + grid_cell_offset) * stride
+        shift_y, shift_x = paddle.meshgrid(shift_y, shift_x)
+        anchor = paddle.stack(
+            [
+                shift_x - cell_half_size, shift_y - cell_half_size,
+                shift_x + cell_half_size, shift_y + cell_half_size
+            ],
+            axis=-1).astype(feat.dtype)
+        anchor_point = paddle.stack(
+            [shift_x, shift_y], axis=-1).astype(feat.dtype)
+
+        anchors.append(anchor.reshape([-1, 4]))
+        anchor_points.append(anchor_point.reshape([-1, 2]))
+        num_anchors_list.append(len(anchors[-1]))
+        stride_tensor.append(
+            paddle.full(
+                [num_anchors_list[-1], 1], stride, dtype=feat.dtype))
+    anchors = paddle.concat(anchors)
+    anchors.stop_gradient = True
+    anchor_points = paddle.concat(anchor_points)
+    anchor_points.stop_gradient = True
+    stride_tensor = paddle.concat(stride_tensor)
+    stride_tensor.stop_gradient = True
+    return anchors, anchor_points, num_anchors_list, stride_tensor
+
+
+def _prune_input_spec(input_spec, program, targets):
+    device = paddle.get_device()
+    paddle.enable_static()
+    paddle.set_device(device)
+    pruned_input_spec = [{}]
+    program = program.clone()
+    program = program._prune(targets=targets)
+    global_block = program.global_block()
+    for name, spec in input_spec[0].items():
+        try:
+            v = global_block.var(name)
+            pruned_input_spec[0][name] = spec
+        except Exception:
+            pass
+    paddle.disable_static(place=device)
+    return pruned_input_spec
+
+
+def get_infer_cfg_and_input_spec(model, image_shape):
+    image_shape = [None] + image_shape
+    im_shape = [None, 2]
+    scale_factor = [None, 2]
+
+    for layer in model.sublayers():
+        if hasattr(layer, 'convert_to_deploy'):
+            layer.convert_to_deploy()
+
+    model.fuse_norm = False
+    input_spec = [{"image": InputSpec(shape=image_shape, name='image'),
+                   "im_shape": InputSpec(shape=im_shape, name='im_shape'),
+                   "scale_factor": InputSpec(shape=scale_factor, name='scale_factor')}]
+    static_model = paddle.jit.to_static(model, input_spec=input_spec)
+    pruned_input_spec = _prune_input_spec(input_spec, static_model.forward.main_program,
+                                          static_model.forward.outputs)
+
+    return static_model, pruned_input_spec
