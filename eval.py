@@ -7,7 +7,7 @@ from paddle.io import DataLoader
 
 from data_utils.reader import CustomDataset
 from metrics.metrics import COCOMetric
-from model.yolo import PPYOLOE
+from model.yolo import PPYOLOE_S, PPYOLOE_M, PPYOLOE_L, PPYOLOE_X
 from utils.logger import setup_logger
 from utils.utils import add_arguments, print_arguments
 
@@ -19,6 +19,7 @@ add_arg('model_type',       str,    'M',                           '所使用PPY
 add_arg('batch_size',       int,    8,                             '训练的批量大小')
 add_arg('num_workers',      int,    4,                             '读取数据的线程数量')
 add_arg('num_classes',      int,    80,                            '分类的类别数量')
+add_arg('image_size',       str,    '640,640',                     '评估时图像输入大小')
 add_arg('image_dir',        str,    'dataset/',                    '图片存放的路径')
 add_arg('eval_anno_path',   str,    'dataset/eval.json',           '评估标注信息json文件路径')
 add_arg('resume_model',     str,    'output/PPYOLOE_M/best_model', '恢复模型文件夹路径')
@@ -28,10 +29,12 @@ print_arguments(args)
 
 # 评估模型
 def evaluate():
+    image_size = [int(s) for s in args.image_size.split(',')]
     # 评估数据
     eval_dataset = CustomDataset(image_dir=args.image_dir,
                                  anno_path=args.eval_anno_path,
                                  data_fields=['image'],
+                                 eval_image_size=image_size,
                                  mode='eval')
     eval_loader = DataLoader(dataset=eval_dataset,
                              batch_size=args.batch_size,
@@ -39,13 +42,13 @@ def evaluate():
 
     # 获取模型
     if args.model_type == 'X':
-        model = PPYOLOE(num_classes=args.num_classes, depth_mult=1.33, width_mult=1.25)
+        model = PPYOLOE_X(num_classes=args.num_classes)
     elif args.model_type == 'L':
-        model = PPYOLOE(num_classes=args.num_classes, depth_mult=1.0, width_mult=1.0)
+        model = PPYOLOE_L(num_classes=args.num_classes)
     elif args.model_type == 'M':
-        model = PPYOLOE(num_classes=args.num_classes, depth_mult=0.67, width_mult=0.75)
+        model = PPYOLOE_M(num_classes=args.num_classes)
     elif args.model_type == 'S':
-        model = PPYOLOE(num_classes=args.num_classes, depth_mult=0.33, width_mult=0.50)
+        model = PPYOLOE_S(num_classes=args.num_classes)
     else:
         raise Exception(f'模型类型不存在，model_type：{args.model_type}')
     # 获取评估器

@@ -5,7 +5,7 @@ import os
 import paddle
 
 from model.utils import get_infer_cfg_and_input_spec
-from model.yolo import PPYOLOE
+from model.yolo import PPYOLOE_S, PPYOLOE_M, PPYOLOE_L, PPYOLOE_X
 from utils.logger import setup_logger
 from utils.utils import add_arguments, print_arguments, get_coco_model
 
@@ -25,13 +25,13 @@ print_arguments(args)
 # 导出模型
 def export_model():
     if args.model_type == 'X':
-        model = PPYOLOE(num_classes=args.num_classes, depth_mult=1.33, width_mult=1.25)
+        model = PPYOLOE_X(num_classes=args.num_classes)
     elif args.model_type == 'L':
-        model = PPYOLOE(num_classes=args.num_classes, depth_mult=1.0, width_mult=1.0)
+        model = PPYOLOE_L(num_classes=args.num_classes)
     elif args.model_type == 'M':
-        model = PPYOLOE(num_classes=args.num_classes, depth_mult=0.67, width_mult=0.75)
+        model = PPYOLOE_M(num_classes=args.num_classes)
     elif args.model_type == 'S':
-        model = PPYOLOE(num_classes=args.num_classes, depth_mult=0.33, width_mult=0.50)
+        model = PPYOLOE_S(num_classes=args.num_classes)
     else:
         raise Exception(f'模型类型不存在，model_type：{args.model_type}')
 

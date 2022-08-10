@@ -83,7 +83,7 @@ class COCODataset(Dataset):
             im_path = os.path.join(self.image_dir, im_fname) if self.image_dir else im_fname
             is_empty = False
             if not os.path.exists(im_path):
-                logger.warning('Illegal image file: {}, and it will be ignored'.format(im_path))
+                logger.warning('图片不存在: {}, 已经忽略跳过！'.format(im_path))
                 continue
 
             if im_w < 0 or im_h < 0:
@@ -142,12 +142,10 @@ class COCODataset(Dataset):
                 gt_bbox = np.zeros((num_bbox, 4), dtype=np.float32)
                 if is_rbox_anno:
                     gt_rbox = np.zeros((num_bbox, 5), dtype=np.float32)
-                gt_theta = np.zeros((num_bbox, 1), dtype=np.int32)
                 gt_class = np.zeros((num_bbox, 1), dtype=np.int32)
                 is_crowd = np.zeros((num_bbox, 1), dtype=np.int32)
                 gt_poly = [None] * num_bbox
 
-                has_segmentation = False
                 for i, box in enumerate(bboxes):
                     catid = box['category_id']
                     gt_class[i][0] = self.catid2clsid[catid]
@@ -156,22 +154,6 @@ class COCODataset(Dataset):
                     if is_rbox_anno:
                         gt_rbox[i, :] = box['clean_rbox']
                     is_crowd[i][0] = box['iscrowd']
-                    # check RLE format
-                    if 'segmentation' in box and box['iscrowd'] == 1:
-                        gt_poly[i] = [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0]]
-                    elif 'segmentation' in box and box['segmentation']:
-                        if not np.array(box['segmentation']).size > 0 and not self.allow_empty:
-                            bboxes.pop(i)
-                            gt_poly.pop(i)
-                            np.delete(is_crowd, i)
-                            np.delete(gt_class, i)
-                            np.delete(gt_bbox, i)
-                        else:
-                            gt_poly[i] = box['segmentation']
-                        has_segmentation = True
-
-                if has_segmentation and not any(gt_poly) and not self.allow_empty:
-                    continue
 
                 if is_rbox_anno:
                     gt_rec = {

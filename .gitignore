@@ -1,10 +1,7 @@
 .idea
 log/
-dataset/*
+dataset/
 pretrained_models/
 output/
 output_inference/
 bbox.json
-!dataset/label_list.txt
-!dataset/test.jpg
-!dataset/result.jpg

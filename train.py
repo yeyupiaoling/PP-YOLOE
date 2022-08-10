@@ -12,7 +12,7 @@ from visualdl import LogWriter
 
 from data_utils.reader import CustomDataset, BatchCompose
 from metrics.metrics import COCOMetric
-from model.yolo import PPYOLOE
+from model.yolo import PPYOLOE_S, PPYOLOE_M, PPYOLOE_L, PPYOLOE_X
 from utils.logger import setup_logger
 from utils.lr import cosine_decay_with_warmup
 from utils.utils import add_arguments, print_arguments
@@ -24,7 +24,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 add_arg = functools.partial(add_arguments, argparser=parser)
 add_arg('model_type',          str,    'M',                      '所使用的模型类型', choices=["X", "L", "M", "S"])
 add_arg('batch_size',          int,    8,                        '训练的批量大小')
-add_arg('num_workers',         int,    4,                        '读取数据的线程数量')
+add_arg('num_workers',         int,    8,                        '读取数据的线程数量')
 add_arg('num_epoch',           int,    300,                      '训练的轮数')
 add_arg('num_classes',         int,    80,                       '分类的类别数量')
 add_arg('learning_rate',       float,  0.0025,                   '初始学习率的大小')
@@ -32,7 +32,7 @@ add_arg('image_dir',           str,    'dataset/',               '图片存放�
 add_arg('train_anno_path',     str,    'dataset/train.json',     '训练数据标注信息json文件路径')
 add_arg('eval_anno_path',      str,    'dataset/eval.json',      '评估标注信息json文件路径')
 add_arg('save_model_dir',      str,    'output/',                '模型保存的路径')
-add_arg('use_random_distort',  bool,   True,                     '是否使用随机变形数据增强')
+add_arg('use_random_distort',  bool,   True,                     '是否使用随机颜色失真数据增强')
 add_arg('use_random_expand',   bool,   True,                     '是否使用随机扩张数据增强')
 add_arg('use_random_crop',     bool,   True,                     '是否使用随机裁剪数据增强')
 add_arg('use_random_flip',     bool,   True,                     '是否使用随机翻转数据增强')
@@ -96,7 +96,8 @@ def train():
                                   use_random_expand=args.use_random_expand,
                                   use_random_crop=args.use_random_crop,
                                   use_random_flip=args.use_random_flip)
-    train_batch_sampler = paddle.io.DistributedBatchSampler(train_dataset, batch_size=args.batch_size, shuffle=True)
+    train_batch_sampler = paddle.io.DistributedBatchSampler(train_dataset, batch_size=args.batch_size, shuffle=True,
+                                                            drop_last=True)
     collate_fn = BatchCompose()
     train_loader = DataLoader(dataset=train_dataset,
                               batch_sampler=train_batch_sampler,
@@ -113,13 +114,13 @@ def train():
 
     # 获取模型
     if args.model_type == 'X':
-        model = PPYOLOE(num_classes=args.num_classes, depth_mult=1.33, width_mult=1.25)
+        model = PPYOLOE_X(num_classes=args.num_classes)
     elif args.model_type == 'L':
-        model = PPYOLOE(num_classes=args.num_classes, depth_mult=1.0, width_mult=1.0)
+        model = PPYOLOE_L(num_classes=args.num_classes)
     elif args.model_type == 'M':
-        model = PPYOLOE(num_classes=args.num_classes, depth_mult=0.67, width_mult=0.75)
+        model = PPYOLOE_M(num_classes=args.num_classes)
     elif args.model_type == 'S':
-        model = PPYOLOE(num_classes=args.num_classes, depth_mult=0.33, width_mult=0.50)
+        model = PPYOLOE_S(num_classes=args.num_classes)
     else:
         raise Exception(f'模型类型不存在，model_type：{args.model_type}')
 
@@ -214,18 +215,19 @@ def train():
             save_model(save_model_dir=args.save_model_dir, use_model=f'PPYOLOE_{args.model_type.upper()}',
                        epoch=epoch_id, model=model, optimizer=optimizer)
         print('\n', '=' * 70)
+        # 执行评估
+        mAP = evaluate(model=model, eval_loader=eval_loader, metrics=metrics)[0]
         if local_rank == 0:
-            # 执行评估
-            mAP = evaluate(model=model, eval_loader=eval_loader, metrics=metrics)[0]
             writer.add_scalar('Test/mAP', mAP, test_step)
             test_step += 1
-            # 保存效果最好的模型
-            if mAP >= best_mAP:
-                best_mAP = mAP
+        if mAP >= best_mAP:
+            best_mAP = mAP
+            if local_rank == 0:
+                # 保存效果最好的模型
                 save_model(save_model_dir=args.save_model_dir, use_model=f'PPYOLOE_{args.model_type.upper()}',
                            epoch=epoch_id, model=model, optimizer=optimizer, best_model=True)
-            logger.info('Test epoch: {}, time/epoch: {}, mAP: {:.5f}, best_mAP: {:.5f}'.format(
-                epoch_id, str(timedelta(seconds=(time.time() - start_epoch))), mAP, best_mAP))
+        logger.info('Test epoch: {}, time/epoch: {}, mAP: {:.5f}, best_mAP: {:.5f}'.format(
+            epoch_id, str(timedelta(seconds=(time.time() - start_epoch))), mAP, best_mAP))
         print('=' * 70, '\n')
 
 

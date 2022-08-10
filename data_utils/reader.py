@@ -37,6 +37,7 @@ class CustomDataset(COCODataset):
                  load_crowd=False,
                  allow_empty=False,
                  empty_ratio=1.,
+                 eval_image_size=[640, 640],
                  use_random_distort=True,
                  use_random_expand=True,
                  use_random_crop=True,
@@ -45,10 +46,10 @@ class CustomDataset(COCODataset):
                                             sample_num, load_crowd, allow_empty, empty_ratio)
         self._curr_iter = 0
         self.mode = mode
-        assert self.mode in ['train', 'eval'], "数据处理模型不属于['train', 'eval']"
+        assert self.mode in ['train', 'eval'], "数据处理模式不属于['train', 'eval']"
         # 数据预处理
         self.train_transform = [Decode()]
-        self.eval_transform = [Decode(), Resize(target_size=[640, 640]), NormalizeImage(), Permute()]
+        self.eval_transform = [Decode(), Resize(target_size=eval_image_size), NormalizeImage(), Permute()]
         # 数据增强
         if use_random_distort:
             self.train_transform.append(RandomDistort())

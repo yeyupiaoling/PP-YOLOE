@@ -8,6 +8,8 @@ from utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
+__all__ = ["Decode", "RandomDistort", "RandomCrop", "RandomFlip", "RandomExpand", "NormalizeImage", "Resize", "Permute"]
+
 
 # 读取图像文件
 class Decode(object):

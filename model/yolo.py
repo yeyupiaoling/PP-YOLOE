@@ -3,7 +3,7 @@ from model.custom_pan import CustomCSPPAN
 from model.meta_arch import BaseArch
 from model.ppyoloe_head import PPYOLOEHead
 
-__all__ = ['PPYOLOE']
+__all__ = ["PPYOLOE_X", 'PPYOLOE_L', "PPYOLOE_M", "PPYOLOE_S"]
 
 
 class PPYOLOE(BaseArch):
@@ -47,3 +47,23 @@ class PPYOLOE(BaseArch):
 
     def get_pred(self):
         return self._forward()
+
+
+def PPYOLOE_X(num_classes):
+    model = PPYOLOE(num_classes=num_classes, depth_mult=1.33, width_mult=1.25)
+    return model
+
+
+def PPYOLOE_L(num_classes):
+    model = PPYOLOE(num_classes=num_classes, depth_mult=1.0, width_mult=1.0)
+    return model
+
+
+def PPYOLOE_M(num_classes):
+    model = PPYOLOE(num_classes=num_classes, depth_mult=0.67, width_mult=0.75)
+    return model
+
+
+def PPYOLOE_S(num_classes):
+    model = PPYOLOE(num_classes=num_classes, depth_mult=0.33, width_mult=0.50)
+    return model

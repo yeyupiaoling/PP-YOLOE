@@ -1,4 +1,5 @@
 import json
+import os
 import typing
 
 import paddle
@@ -41,7 +42,7 @@ class COCOMetric(object):
         self.bbox_results += infer_results['bbox'] if 'bbox' in infer_results else []
 
     def accumulate(self):
-        output = "bbox.json"
+        output = f"bbox_{paddle.distributed.get_rank()}.json"
         with open(output, 'w') as f:
             json.dump(self.bbox_results, f)
 
@@ -50,4 +51,5 @@ class COCOMetric(object):
         bbox_stats = cocoapi_eval(jsonfile=output,
                                   style='bbox',
                                   anno_file=self.anno_file)
+        os.remove(output)
         return bbox_stats
