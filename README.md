@@ -122,7 +122,7 @@ python infer_onnx.py --image_path=dataset/test.jpg --onnx_model=output_inference
 
 ## Android
 
-如果要部署在Android上面使用的话，需要导出Paddle Lite模型，通过上面命令可以导出Paddle Lite模型。需要根据自己的实际情况修改模型的路径，以及是否需要进行量化量化，量化可以减少1/2的模型大小，但预测速度上不会有太大变化，一般不会降低模型的准确率。
+如果要部署在Android上面使用的话，需要导出Paddle Lite模型，通过上面命令可以导出Paddle Lite模型。需要根据自己的实际情况修改模型的路径，以及是否需要进行量化量化，量化可以减少1/2的模型大小，但预测速度上不会有太大变化，一般不会降低模型的准确率。导出的Paddle Lite模型会保存到`output_inference/detect_model.nb`，**建议**在导出模型`export_model.py`的时候，在指定`image_shape`最好是选择`3,320,320`，这样推理速度会快一些。
 ```shell
 python to_lite_model.py
 ```
