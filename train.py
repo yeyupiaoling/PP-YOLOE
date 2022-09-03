@@ -27,7 +27,7 @@ add_arg('batch_size',          int,    8,                        '训练的批�
 add_arg('num_workers',         int,    8,                        '读取数据的线程数量')
 add_arg('num_epoch',           int,    300,                      '训练的轮数')
 add_arg('num_classes',         int,    80,                       '分类的类别数量')
-add_arg('learning_rate',       float,  0.0025,                   '初始学习率的大小')
+add_arg('learning_rate',       float,  0.00125,                  '初始学习率的大小')
 add_arg('image_dir',           str,    'dataset/',               '图片存放的路径')
 add_arg('train_anno_path',     str,    'dataset/train.json',     '训练数据标注信息json文件路径')
 add_arg('eval_anno_path',      str,    'dataset/eval.json',      '评估标注信息json文件路径')
