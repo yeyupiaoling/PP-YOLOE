@@ -49,7 +49,8 @@ class CustomDataset(COCODataset):
         assert self.mode in ['train', 'eval'], "数据处理模式不属于['train', 'eval']"
         # 数据预处理
         self.train_transform = [Decode()]
-        self.eval_transform = [Decode(), Resize(target_size=eval_image_size), NormalizeImage(), Permute()]
+        self.eval_transform = [Decode(), Resize(target_size=eval_image_size),
+                               NormalizeImage(mean=[0., 0., 0.], std=[1., 1., 1.], norm_type='none'), Permute()]
         # 数据增强
         if use_random_distort:
             self.train_transform.append(RandomDistort())
@@ -81,7 +82,7 @@ class BatchCompose(object):
         self.transform = [
             BatchRandomResize(target_size=[320, 352, 384, 416, 448, 480, 512, 544, 576, 608, 640, 672, 704, 736, 768],
                               random_size=True, random_interp=True, keep_ratio=False),
-            BatchNormalizeImage(), BatchPermute(), BatchPadGT()]
+            BatchNormalizeImage(mean=[0., 0., 0.], std=[1., 1., 1.], is_scale=False, norm_type='none'), BatchPermute(), BatchPadGT()]
 
     def __call__(self, data):
         for t in self.transform:

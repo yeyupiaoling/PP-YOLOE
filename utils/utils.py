@@ -28,8 +28,8 @@ def add_arguments(argname, type, default, help, argparser, **kwargs):
 
 def get_pretrained_model(model_type: str, pretrained_dir='pretrained_models'):
     assert model_type.upper() in ["X", "L", "M", "S"]
-    url = f"https://paddledet.bj.bcebos.com/models/pretrained/CSPResNetb_{model_type.lower()}_pretrained.pdparams"
-    pretrained_model_path = os.path.join(pretrained_dir, f"CSPResNetb_{model_type.lower()}_pretrained.pdparams")
+    url = f"https://bj.bcebos.com/v1/paddledet/models/pretrained/ppyoloe_crn_{model_type.lower()}_obj365_pretrained.pdparams"
+    pretrained_model_path = os.path.join(pretrained_dir, f"ppyoloe_crn_{model_type.lower()}_obj365_pretrained.pdparams")
     if os.path.exists(pretrained_model_path):
         return pretrained_model_path
     else:
@@ -60,8 +60,8 @@ def get_pretrained_model(model_type: str, pretrained_dir='pretrained_models'):
 
 def get_coco_model(model_type: str, pretrained_dir='pretrained_models'):
     assert model_type.upper() in ["X", "L", "M", "S"]
-    url = f"https://paddledet.bj.bcebos.com/models/ppyoloe_crn_{model_type.lower()}_300e_coco.pdparams"
-    pretrained_model_path = os.path.join(pretrained_dir, f"ppyoloe_crn_{model_type.lower()}_300e_coco.pdparams")
+    url = f"https://paddledet.bj.bcebos.com/models/ppyoloe_plus_crn_{model_type.lower()}_80e_coco.pdparams"
+    pretrained_model_path = os.path.join(pretrained_dir, f"ppyoloe_plus_crn_{model_type.lower()}_80e_coco.pdparams")
     if os.path.exists(pretrained_model_path):
         return pretrained_model_path
     else:

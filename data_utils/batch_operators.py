@@ -61,13 +61,15 @@ class BatchRandomResize(object):
 
 
 class BatchNormalizeImage(NormalizeImage):
-    def __init__(self, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225], is_scale=True):
+    def __init__(self, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225], is_scale=True, norm_type='mean_std'):
         """
         Args:
             mean (list): the pixel mean
             std (list): the pixel variance
+            is_scale (bool): scale the pixel to [0,1]
+            norm_type (str): type in ['mean_std', 'none']
         """
-        super(BatchNormalizeImage, self).__init__(mean=mean, std=std, is_scale=is_scale)
+        super(BatchNormalizeImage, self).__init__(mean=mean, std=std, is_scale=is_scale, norm_type=norm_type)
 
     def __call__(self, samples):
         for i in range(len(samples)):

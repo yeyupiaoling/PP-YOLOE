@@ -30,8 +30,8 @@ public class DetectionPredictor {
     private static final String TAG = DetectionPredictor.class.getName();
     private static final boolean bgr2rgb = true;
     private static final float inputScale = 255.0f;
-    private static final float[] inputMean = new float[]{0.485f, 0.456f, 0.406f};
-    private static final float[] inputStd = new float[]{0.229f, 0.224f, 0.225f};
+    private static final float[] inputMean = new float[]{0f, 0f, 0f};
+    private static final float[] inputStd = new float[]{1f, 1f, 1f};
     private static final int NUM_THREADS = 4;
     private static final float THRESHOLD = 0.5f;
     private static volatile DetectionPredictor detectionPredictor;

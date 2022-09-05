@@ -4,6 +4,7 @@ import paddle
 import paddle.nn as nn
 from paddle import ParamAttr
 from paddle.regularizer import L2Decay
+from paddle.nn.initializer import Constant
 from model.utils import get_act_fn
 
 
@@ -46,7 +47,7 @@ class ConvBNLayer(nn.Layer):
 
 
 class RepVggBlock(nn.Layer):
-    def __init__(self, ch_in, ch_out, act='relu'):
+    def __init__(self, ch_in, ch_out, act='relu', alpha=False):
         super(RepVggBlock, self).__init__()
         self.ch_in = ch_in
         self.ch_out = ch_out
@@ -56,12 +57,22 @@ class RepVggBlock(nn.Layer):
             ch_in, ch_out, 1, stride=1, padding=0, act=None)
         self.act = get_act_fn(act) if act is None or isinstance(act, (
             str, dict)) else act
+        if alpha:
+            self.alpha = self.create_parameter(
+                shape=[1],
+                attr=ParamAttr(initializer=Constant(value=1.)),
+                dtype="float32")
+        else:
+            self.alpha = None
 
     def forward(self, x):
         if hasattr(self, 'conv'):
             y = self.conv(x)
         else:
-            y = self.conv1(x) + self.conv2(x)
+            if self.alpha:
+                y = self.conv1(x) + self.alpha * self.conv2(x)
+            else:
+                y = self.conv1(x) + self.conv2(x)
         y = self.act(y)
         return y
 
@@ -83,8 +94,12 @@ class RepVggBlock(nn.Layer):
     def get_equivalent_kernel_bias(self):
         kernel3x3, bias3x3 = self._fuse_bn_tensor(self.conv1)
         kernel1x1, bias1x1 = self._fuse_bn_tensor(self.conv2)
-        return kernel3x3 + self._pad_1x1_to_3x3_tensor(
-            kernel1x1), bias3x3 + bias1x1
+        if self.alpha:
+            return kernel3x3 + self.alpha * self._pad_1x1_to_3x3_tensor(
+                kernel1x1), bias3x3 + self.alpha * bias1x1
+        else:
+            return kernel3x3 + self._pad_1x1_to_3x3_tensor(
+                kernel1x1), bias3x3 + bias1x1
 
     def _pad_1x1_to_3x3_tensor(self, kernel1x1):
         if kernel1x1 is None:
@@ -107,11 +122,11 @@ class RepVggBlock(nn.Layer):
 
 
 class BasicBlock(nn.Layer):
-    def __init__(self, ch_in, ch_out, act='relu', shortcut=True):
+    def __init__(self, ch_in, ch_out, act='relu', shortcut=True, use_alpha=False):
         super(BasicBlock, self).__init__()
         assert ch_in == ch_out
         self.conv1 = ConvBNLayer(ch_in, ch_out, 3, stride=1, padding=1, act=act)
-        self.conv2 = RepVggBlock(ch_out, ch_out, act=act)
+        self.conv2 = RepVggBlock(ch_out, ch_out, act=act, alpha=use_alpha)
         self.shortcut = shortcut
 
     def forward(self, x):
@@ -148,7 +163,8 @@ class CSPResStage(nn.Layer):
                  n,
                  stride,
                  act='relu',
-                 attn='eca'):
+                 attn='eca',
+                 use_alpha=False):
         super(CSPResStage, self).__init__()
 
         ch_mid = (ch_in + ch_out) // 2
@@ -161,8 +177,11 @@ class CSPResStage(nn.Layer):
         self.conv2 = ConvBNLayer(ch_mid, ch_mid // 2, 1, act=act)
         self.blocks = nn.Sequential(*[
             block_fn(
-                ch_mid // 2, ch_mid // 2, act=act, shortcut=True)
-            for i in range(n)
+                ch_mid // 2,
+                ch_mid // 2,
+                act=act,
+                shortcut=True,
+                use_alpha=use_alpha) for i in range(n)
         ])
         if attn:
             self.attn = EffectiveSELayer(ch_mid, act='hardsigmoid')
@@ -195,7 +214,8 @@ class CSPResNet(nn.Layer):
                  use_large_stem=True,
                  width_mult=1.0,
                  depth_mult=1.0,
-                 trt=False):
+                 trt=False,
+                 use_alpha=False,):
         super(CSPResNet, self).__init__()
         channels = [max(round(c * width_mult), 1) for c in channels]
         layers = [max(round(l * depth_mult), 1) for l in layers]
@@ -234,11 +254,16 @@ class CSPResNet(nn.Layer):
 
         n = len(channels) - 1
         self.stages = nn.Sequential(*[(str(i), CSPResStage(
-            BasicBlock, channels[i], channels[i + 1], layers[i], 2, act=act))
-                                      for i in range(n)])
+            BasicBlock,
+            channels[i],
+            channels[i + 1],
+            layers[i],
+            2,
+            act=act,
+            use_alpha=use_alpha)) for i in range(n)])
 
         self.out_channels = channels[1:]
-        self._out_strides = [4, 8, 16, 32]
+        self._out_strides = [4 * 2 ** i for i in range(n)]
         self.return_idx = return_idx
 
     def forward(self, inputs):
