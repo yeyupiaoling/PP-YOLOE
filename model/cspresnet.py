@@ -215,7 +215,7 @@ class CSPResNet(nn.Layer):
                  width_mult=1.0,
                  depth_mult=1.0,
                  trt=False,
-                 use_alpha=False,):
+                 use_alpha=True):
         super(CSPResNet, self).__init__()
         channels = [max(round(c * width_mult), 1) for c in channels]
         layers = [max(round(l * depth_mult), 1) for l in layers]
