@@ -127,7 +127,15 @@ python infer_onnx.py --image_path=dataset/test.jpg --onnx_model=output_inference
 python to_lite_model.py
 ```
 
-使用目前还没有开发...
+
+**使用Android应用：**Android源码存放在本项目的根目录中的`Android`，可以直接用Android Studio打开使用，该演示应用有两个功能，第一是`打开相机识别`，第二是`打开相册识别`。如果要替换自己训练的模型，只需要操作这两个文件即可：
+
+1. 把`Android/ai/src/main/assets/detect_model.nb`模型文件替换成你导出的`detect_model.nb`。
+2. 把`Android/ai/src/main/assets/label_list.txt`标签列表文件替换成你的列表文件，这列表文件在`dataset/label_list.txt`。
+
+打开相册识别的演示界面：
+
+![打开相册识别](dataset/android_result.jpg)
 
 
 # 参考

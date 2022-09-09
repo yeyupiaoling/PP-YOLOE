@@ -1,6 +1,7 @@
 .idea
 log/
-dataset/
+dataset/*
+!dataset/android_result.jpg
 pretrained_models/
 output/
 output_inference/
