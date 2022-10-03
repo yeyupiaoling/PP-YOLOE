@@ -35,7 +35,7 @@ def export_model():
     else:
         raise Exception(f'模型类型不存在，model_type：{args.model_type}')
 
-    if args.resume_model is not None:
+    if args.resume_model != "None":
         assert os.path.exists(os.path.join(args.resume_model, 'model.pdparams')), "模型参数文件不存在！"
         model.set_state_dict(paddle.load(os.path.join(args.resume_model, 'model.pdparams')))
         logger.info('成功恢复模型参数和优化方法参数：{}'.format(args.resume_model))
