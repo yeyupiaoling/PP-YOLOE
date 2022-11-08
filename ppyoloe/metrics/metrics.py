@@ -5,7 +5,7 @@ import typing
 import paddle
 from pycocotools.coco import COCO
 
-from metrics.coco_utils import get_infer_results, cocoapi_eval
+from ppyoloe.metrics.coco_utils import get_infer_results, cocoapi_eval
 
 __all__ = ['COCOMetric']
 

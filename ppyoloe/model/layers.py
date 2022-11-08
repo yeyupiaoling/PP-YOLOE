@@ -2,7 +2,7 @@ import paddle
 import paddle.nn as nn
 import paddle.nn.functional as F
 
-from model.utils import multiclass_nms
+from ppyoloe.model.utils import multiclass_nms
 
 
 class DropBlock(nn.Layer):
@@ -94,8 +94,9 @@ class MultiClassNMS(object):
                           int(paddle.version.minor) >= 3)):
             kwargs.update({'nms_eta': 1.1})
             bbox, bbox_num, _ = multiclass_nms(bboxes, score, **kwargs)
-            mask = paddle.slice(bbox, [-1], [0], [1]) != -1
-            bbox = paddle.masked_select(bbox, mask).reshape((-1, 6))
+            bbox = bbox.reshape([1, -1, 6])
+            idx = paddle.nonzero(bbox[..., 0] != -1)
+            bbox = paddle.gather_nd(bbox, idx)
             return bbox, bbox_num, None
         else:
             return multiclass_nms(bboxes, score, **kwargs)

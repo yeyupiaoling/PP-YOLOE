@@ -2,7 +2,7 @@ import itertools
 import sys
 
 import numpy as np
-from utils.logger import setup_logger
+from ppyoloe.utils.logger import setup_logger
 from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval
 

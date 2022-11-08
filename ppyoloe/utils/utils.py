@@ -5,7 +5,7 @@ import shutil
 import requests
 from tqdm import tqdm
 
-from utils.logger import setup_logger
+from ppyoloe.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 

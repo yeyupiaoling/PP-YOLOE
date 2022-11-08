@@ -1,7 +1,7 @@
-from model.cspresnet import CSPResNet
-from model.custom_pan import CustomCSPPAN
-from model.meta_arch import BaseArch
-from model.ppyoloe_head import PPYOLOEHead
+from ppyoloe.model.cspresnet import CSPResNet
+from ppyoloe.model.custom_pan import CustomCSPPAN
+from ppyoloe.model.meta_arch import BaseArch
+from ppyoloe.model.ppyoloe_head import PPYOLOEHead
 
 __all__ = ["PPYOLOE_X", 'PPYOLOE_L', "PPYOLOE_M", "PPYOLOE_S"]
 

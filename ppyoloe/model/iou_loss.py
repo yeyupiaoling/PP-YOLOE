@@ -63,8 +63,7 @@ class GIoULoss(object):
         if loc_reweight is not None:
             loc_reweight = paddle.reshape(loc_reweight, shape=(-1, 1))
             loc_thresh = 0.9
-            giou = 1 - (1 - loc_thresh
-                        ) * miou - loc_thresh * miou * loc_reweight
+            giou = 1 - (1 - loc_thresh) * miou - loc_thresh * miou * loc_reweight
         else:
             giou = 1 - miou
         if self.reduction == 'none':

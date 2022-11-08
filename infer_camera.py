@@ -3,8 +3,8 @@ import functools
 import cv2
 from PIL import ImageFont
 
-from utils.predictor import DetectionPredictor
-from utils.utils import add_arguments, print_arguments
+from ppyoloe.predict import PPYOLOEPredictor
+from ppyoloe.utils.utils import add_arguments, print_arguments
 
 parser = argparse.ArgumentParser(description=__doc__)
 add_arg = functools.partial(add_arguments, argparser=parser)
@@ -24,12 +24,12 @@ def main():
     cap = cv2.VideoCapture(args.device_id)
     # 字体的格式
     font_style = ImageFont.truetype("utils/simsun.ttc", 14, encoding="utf-8")
-    predictor = DetectionPredictor(model_dir=args.model_dir,
-                                   labels_list_path=args.labels_list_path,
-                                   use_gpu=args.use_gpu,
-                                   use_tensorrt=args.use_tensorrt,
-                                   height=image_shape[0],
-                                   width=image_shape[1])
+    predictor = PPYOLOEPredictor(model_dir=args.model_dir,
+                                 labels_list_path=args.labels_list_path,
+                                 use_gpu=args.use_gpu,
+                                 use_tensorrt=args.use_tensorrt,
+                                 height=image_shape[0],
+                                 width=image_shape[1])
     while True:
         # 从摄像头读取图片
         success, image = cap.read()

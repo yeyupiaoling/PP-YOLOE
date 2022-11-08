@@ -4,7 +4,7 @@ import onnxruntime as ort
 from PIL import Image, ImageDraw
 
 
-class ONNXPredictor:
+class PPYOLOEONNXPredictor:
     def __init__(self, model_path, labels_list_path, use_gpu=True, width=640, height=640, threshold=0.5, use_tensorrt=False):
         self.width = width
         self.height = height

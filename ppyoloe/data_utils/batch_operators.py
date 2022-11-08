@@ -3,7 +3,7 @@ from collections.abc import Sequence
 import cv2
 import numpy as np
 
-from data_utils.operators import Permute, NormalizeImage, Resize
+from ppyoloe.data_utils.operators import Permute, NormalizeImage, Resize
 
 
 class BatchRandomResize(object):

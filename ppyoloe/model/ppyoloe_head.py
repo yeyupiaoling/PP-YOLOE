@@ -2,15 +2,15 @@ import paddle
 import paddle.nn as nn
 import paddle.nn.functional as F
 
-from model.atss_assigner import ATSSAssigner
-from model.task_aligned_assigner import TaskAlignedAssigner
-from model.bbox_utils import batch_distance2bbox
-from model.iou_loss import GIoULoss
-from model.initializer import bias_init_with_prob, constant_, normal_
-from model.utils import generate_anchors_for_grid_cell
-from model.cspresnet import ConvBNLayer
-from model.utils import get_static_shape, paddle_distributed_is_initialized, get_act_fn
-from model.layers import MultiClassNMS
+from ppyoloe.model.atss_assigner import ATSSAssigner
+from ppyoloe.model.task_aligned_assigner import TaskAlignedAssigner
+from ppyoloe.model.bbox_utils import batch_distance2bbox
+from ppyoloe.model.iou_loss import GIoULoss
+from ppyoloe.model.initializer import bias_init_with_prob, constant_, normal_
+from ppyoloe.model.utils import generate_anchors_for_grid_cell
+from ppyoloe.model.cspresnet import ConvBNLayer
+from ppyoloe.model.utils import get_static_shape, get_act_fn
+from ppyoloe.model.layers import MultiClassNMS
 
 __all__ = ['PPYOLOEHead']
 
@@ -327,7 +327,7 @@ class PPYOLOEHead(nn.Layer):
             loss_cls = self._focal_loss(pred_scores, assigned_scores, alpha_l)
 
         assigned_scores_sum = assigned_scores.sum()
-        if paddle_distributed_is_initialized():
+        if paddle.distributed.get_world_size() > 1:
             paddle.distributed.all_reduce(assigned_scores_sum)
             assigned_scores_sum = paddle.clip(
                 assigned_scores_sum / paddle.distributed.get_world_size(),

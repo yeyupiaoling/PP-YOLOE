@@ -4,7 +4,7 @@ import paddle.inference as paddle_infer
 from PIL import Image, ImageDraw
 
 
-class DetectionPredictor:
+class PPYOLOEPredictor:
     def __init__(self, model_dir, labels_list_path, use_gpu=True, width=640, height=640, threshold=0.5, use_tensorrt=False):
         self.width = width
         self.height = height

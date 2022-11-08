@@ -2,9 +2,9 @@ import paddle
 import paddle.nn as nn
 import paddle.nn.functional as F
 
-from model.layers import DropBlock
-from model.utils import get_act_fn
-from model.cspresnet import *
+from ppyoloe.model.cspresnet import *
+from ppyoloe.model.layers import DropBlock
+from ppyoloe.model.utils import get_act_fn
 
 __all__ = ['CustomCSPPAN']
 

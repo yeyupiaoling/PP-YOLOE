@@ -3,7 +3,7 @@ import typing
 import numpy as np
 import paddle
 import paddle.nn as nn
-from model.utils import nms
+from ppyoloe.model.utils import nms
 
 __all__ = ['BaseArch']
 

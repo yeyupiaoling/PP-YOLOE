@@ -1,0 +1,1 @@
+SUPPORT_MODEL = ["X", "L", "M", "S"]

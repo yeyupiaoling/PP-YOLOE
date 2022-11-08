@@ -2,10 +2,13 @@ import numpy as np
 import paddle
 import paddle.nn as nn
 import paddle.nn.functional as F
-from paddle.fluid import core, in_dygraph_mode
-from paddle.fluid.dygraph import parallel_helper
-from paddle.fluid.layer_helper import LayerHelper
+from paddle import in_dynamic_mode
+from paddle.common_ops_import import LayerHelper
 from paddle.static import InputSpec
+try:
+    from paddle import _legacy_C_ops as ops
+except ImportError:
+    from paddle.fluid.core import ops
 
 
 def identity(x):
@@ -57,10 +60,6 @@ def get_static_shape(tensor):
     shape = paddle.shape(tensor)
     shape.stop_gradient = True
     return shape
-
-
-def paddle_distributed_is_initialized():
-    return core.is_compiled_with_dist() and parallel_helper._is_parallel_ctx_initialized()
 
 
 @paddle.jit.not_to_static
@@ -169,13 +168,13 @@ def multiclass_nms(bboxes,
     """
     helper = LayerHelper('multiclass_nms3', **locals())
 
-    if in_dygraph_mode():
+    if in_dynamic_mode():
         attrs = ('background_label', background_label, 'score_threshold',
                  score_threshold, 'nms_top_k', nms_top_k, 'nms_threshold',
                  nms_threshold, 'keep_top_k', keep_top_k, 'nms_eta', nms_eta,
                  'normalized', normalized)
-        output, index, nms_rois_num = core.ops.multiclass_nms3(bboxes, scores,
-                                                               rois_num, *attrs)
+        output, index, nms_rois_num = ops.multiclass_nms3(
+            bboxes, scores, rois_num, *attrs)
         if not return_index:
             index = None
         return output, nms_rois_num, index
@@ -216,69 +215,6 @@ def multiclass_nms(bboxes,
             nms_rois_num = None
 
         return output, nms_rois_num, index
-
-
-def iou_similarity(x, y, box_normalized=True, name=None):
-    """
-    Computes intersection-over-union (IOU) between two box lists.
-    Box list 'X' should be a LoDTensor and 'Y' is a common Tensor,
-    boxes in 'Y' are shared by all instance of the batched inputs of X.
-    Given two boxes A and B, the calculation of IOU is as follows:
-
-    $$
-    IOU(A, B) =
-    \\frac{area(A\\cap B)}{area(A)+area(B)-area(A\\cap B)}
-    $$
-
-    Args:
-        x (Tensor): Box list X is a 2-D Tensor with shape [N, 4] holds N
-             boxes, each box is represented as [xmin, ymin, xmax, ymax],
-             the shape of X is [N, 4]. [xmin, ymin] is the left top
-             coordinate of the box if the input is image feature map, they
-             are close to the origin of the coordinate system.
-             [xmax, ymax] is the right bottom coordinate of the box.
-             The data type is float32 or float64.
-        y (Tensor): Box list Y holds M boxes, each box is represented as
-             [xmin, ymin, xmax, ymax], the shape of X is [N, 4].
-             [xmin, ymin] is the left top coordinate of the box if the
-             input is image feature map, and [xmax, ymax] is the right
-             bottom coordinate of the box. The data type is float32 or float64.
-        box_normalized(bool): Whether treat the priorbox as a normalized box.
-            Set true by default.
-        name(str, optional): For detailed information, please refer
-            to :ref:`api_guide_Name`. Usually name is no need to set and
-            None by default.
-
-    Returns:
-        Tensor: The output of iou_similarity op, a tensor with shape [N, M]
-              representing pairwise iou scores. The data type is same with x.
-
-    Examples:
-        .. code-block:: python
-
-            import paddle
-            from ppdet.modeling import ops
-            paddle.enable_static()
-
-            x = paddle.static.data(name='x', shape=[None, 4], dtype='float32')
-            y = paddle.static.data(name='y', shape=[None, 4], dtype='float32')
-            iou = ops.iou_similarity(x=x, y=y)
-    """
-
-    if in_dygraph_mode():
-        out = core.ops.iou_similarity(x, y, 'box_normalized', box_normalized)
-        return out
-    else:
-        helper = LayerHelper("iou_similarity", **locals())
-        out = helper.create_variable_for_type_inference(dtype=x.dtype)
-
-        helper.append_op(
-            type="iou_similarity",
-            inputs={"X": x,
-                    "Y": y},
-            attrs={"box_normalized": box_normalized},
-            outputs={"Out": out})
-        return out
 
 
 class JDEBBoxPostProcess(nn.Layer):

@@ -1,11 +1,9 @@
-from collections import namedtuple
-
 import paddle
 import paddle.nn as nn
 from paddle import ParamAttr
 from paddle.regularizer import L2Decay
 from paddle.nn.initializer import Constant
-from model.utils import get_act_fn
+from ppyoloe.model.utils import get_act_fn
 
 
 __all__ = ['CSPResNet', 'BasicBlock', 'EffectiveSELayer', 'ConvBNLayer']

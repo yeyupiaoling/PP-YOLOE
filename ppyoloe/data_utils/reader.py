@@ -1,13 +1,13 @@
 import copy
 
 import numpy as np
-from paddle.fluid.dataloader.collate import default_collate_fn
 
-from data_utils.dataset import COCODataset
-from data_utils.operators import RandomFlip, Resize, Permute, NormalizeImage
-from data_utils.operators import Decode, RandomDistort, RandomExpand, RandomCrop
-from data_utils.batch_operators import BatchRandomResize, BatchNormalizeImage, BatchPermute, BatchPadGT
-from utils.logger import setup_logger
+from ppyoloe.data_utils.batch_operators import BatchRandomResize, BatchNormalizeImage, BatchPermute, BatchPadGT
+from ppyoloe.data_utils.dataset import COCODataset
+from ppyoloe.data_utils.operators import Decode, RandomDistort, RandomExpand, RandomCrop
+from ppyoloe.data_utils.operators import RandomFlip, Resize, Permute, NormalizeImage
+from ppyoloe.data_utils.utils import default_collate_fn
+from ppyoloe.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 

@@ -1,8 +1,8 @@
 import paddle
 
 
-def iou_similarity(box1, box2, eps=1e-9):
-    """Calculate iou of box1 and box2
+def batch_iou_similarity(box1, box2, eps=1e-9):
+    """Calculate iou of box1 and box2 in batch
 
     Args:
         box1 (Tensor): box with the shape [N, M1, 4]
@@ -15,6 +15,29 @@ def iou_similarity(box1, box2, eps=1e-9):
     box2 = box2.unsqueeze(1)  # [N, M2, 4] -> [N, 1, M2, 4]
     px1y1, px2y2 = box1[:, :, :, 0:2], box1[:, :, :, 2:4]
     gx1y1, gx2y2 = box2[:, :, :, 0:2], box2[:, :, :, 2:4]
+    x1y1 = paddle.maximum(px1y1, gx1y1)
+    x2y2 = paddle.minimum(px2y2, gx2y2)
+    overlap = (x2y2 - x1y1).clip(0).prod(-1)
+    area1 = (px2y2 - px1y1).clip(0).prod(-1)
+    area2 = (gx2y2 - gx1y1).clip(0).prod(-1)
+    union = area1 + area2 - overlap + eps
+    return overlap / union
+
+
+def iou_similarity(box1, box2, eps=1e-10):
+    """Calculate iou of box1 and box2
+
+    Args:
+        box1 (Tensor): box with the shape [M1, 4]
+        box2 (Tensor): box with the shape [M2, 4]
+
+    Return:
+        iou (Tensor): iou between box1 and box2 with the shape [M1, M2]
+    """
+    box1 = box1.unsqueeze(1)  # [M1, 4] -> [M1, 1, 4]
+    box2 = box2.unsqueeze(0)  # [M2, 4] -> [1, M2, 4]
+    px1y1, px2y2 = box1[:, :, 0:2], box1[:, :, 2:4]
+    gx1y1, gx2y2 = box2[:, :, 0:2], box2[:, :, 2:4]
     x1y1 = paddle.maximum(px1y1, gx1y1)
     x2y2 = paddle.minimum(px2y2, gx2y2)
     overlap = (x2y2 - x1y1).clip(0).prod(-1)

@@ -4,7 +4,7 @@ from numbers import Number, Integral
 import cv2
 import numpy as np
 
-from utils.logger import setup_logger
+from ppyoloe.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 

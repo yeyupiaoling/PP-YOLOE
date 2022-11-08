@@ -3,7 +3,7 @@ import os
 import numpy as np
 from paddle.io import Dataset
 
-from utils.logger import setup_logger
+from ppyoloe.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 

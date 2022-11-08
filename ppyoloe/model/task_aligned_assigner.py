@@ -20,8 +20,8 @@ import paddle
 import paddle.nn as nn
 import paddle.nn.functional as F
 
-from model.bbox_utils import iou_similarity
-from model.atss_utils import (gather_topk_anchors, check_points_inside_bboxes, compute_max_iou_anchor)
+from ppyoloe.model.bbox_utils import iou_similarity
+from ppyoloe.model.atss_utils import (gather_topk_anchors, check_points_inside_bboxes, compute_max_iou_anchor)
 
 __all__ = ['TaskAlignedAssigner']
 

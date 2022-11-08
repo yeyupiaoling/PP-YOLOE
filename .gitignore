@@ -1,8 +1,7 @@
 .idea
 log/
-dataset/*
-!dataset/android_result.jpg
+dataset/
 pretrained_models/
-output/
-output_inference/
-bbox.json
+models/
+test.py
+bbox_*.json

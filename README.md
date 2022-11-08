@@ -13,15 +13,25 @@
 |  X   |  80   | 640  |           54.7	            |            54.9             |   98.42   |  206.59  |      45.0      |          95.2           | 
 
 
-# 安装环境
-1. 安装PaddlePaddle GPU版本
+## 安装环境
+
+ - 首先安装的是PaddlePaddle的GPU版本，如果已经安装过了，请跳过。
 ```shell
-conda install paddlepaddle-gpu==2.3.1 cudatoolkit=10.2 --channel https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/Paddle/
+conda install paddlepaddle-gpu==2.3.2 cudatoolkit=10.2 --channel https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/Paddle/
 ```
 
-2. 其他依赖库
+ - 安装ppvector库。
+ 
+使用pip安装，命令如下：
 ```shell
-python -m pip install -r requirements.txt -i https://mirror.baidu.com/pypi/simple
+python -m pip install ppyoloe -U -i https://pypi.tuna.tsinghua.edu.cn/simple
+```
+
+**建议源码安装**，源码安装能保证使用最新代码。
+```shell
+git clone https://github.com/yeyupiaoling/PP-YOLOE.git
+cd PP-YOLOE/
+python setup.py install
 ```
 
 # 快速使用
