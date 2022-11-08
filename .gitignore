@@ -1,4 +1,7 @@
 .idea
+build/
+dist/
+ppyoloe.egg-info/
 log/
 dataset/
 pretrained_models/
